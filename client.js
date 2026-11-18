@@ -693,11 +693,24 @@ window.__ModuleLoader__.load({
     }
 
     /** 订阅一个配置表单 scope。 */
+    /** 读快照的安全包装：缺 scope 或形状异常时给一个 unavailable 快照。 */
+    var EMPTY_SNAPSHOT = { status: 'unavailable', value: undefined, base: undefined, user: undefined, revision: undefined, writable: false, mode: 'host' }
+
+    function snapshotOf(scope) {
+      try {
+        var value = scope === null || scope === undefined || typeof scope.getSnapshot !== 'function' ? undefined : scope.getSnapshot()
+        return value !== null && typeof value === 'object' ? value : EMPTY_SNAPSHOT
+      } catch {
+        return EMPTY_SNAPSHOT
+      }
+    }
+
     function useScope(scope) {
-      var state = react.useState(function () { return scope.getSnapshot() })
+      var state = react.useState(function () { return snapshotOf(scope) })
       react.useEffect(function () {
-        state[1](scope.getSnapshot())
-        return scope.subscribe(function () { state[1](scope.getSnapshot()) })
+        state[1](snapshotOf(scope))
+        if (scope === null || scope === undefined || typeof scope.subscribe !== 'function') return undefined
+        return scope.subscribe(function () { state[1](snapshotOf(scope)) })
       }, [scope])
       return state[0]
     }
@@ -784,7 +797,15 @@ window.__ModuleLoader__.load({
           return next
         })
         Promise.resolve()
-          .then(function () { return ctx.remote.session.modelCatalog() })
+          .then(function () {
+            // remote 缺失时降级为空目录：设置页其余部分仍然可用。
+            if (ctx === null || ctx === undefined || ctx.remote === null || ctx.remote === undefined
+              || ctx.remote.session === null || ctx.remote.session === undefined
+              || typeof ctx.remote.session.modelCatalog !== 'function') {
+              return { ok: false, value: { groups: [], failures: [] } }
+            }
+            return ctx.remote.session.modelCatalog()
+          })
           .then(function (response) {
             if (!live) return
             if (response !== null && response !== undefined && response.ok === true) {
@@ -804,11 +825,16 @@ window.__ModuleLoader__.load({
         return function () { live = false }
       }, [ctx, nonceState[0]])
 
+      // 订阅是可选的：没有 remote 就不订阅，页面照常渲染。
       react.useEffect(function () {
+        if (ctx === null || ctx === undefined || ctx.remote === null || ctx.remote === undefined
+          || typeof ctx.remote.$on !== 'function') return undefined
         var off = ctx.remote.$on('llm/adapters-updated', function () { setNonce(function (n) { return n + 1 }) })
         return typeof off === 'function' ? off : undefined
       }, [ctx])
       react.useEffect(function () {
+        if (ctx === null || ctx === undefined || ctx.remote === null || ctx.remote === undefined
+          || typeof ctx.remote.$on !== 'function') return undefined
         var off = ctx.remote.$on('settings/document-updated', function () { setNonce(function (n) { return n + 1 }) })
         return typeof off === 'function' ? off : undefined
       }, [ctx])
@@ -1168,20 +1194,26 @@ window.__ModuleLoader__.load({
         })
       }, 'input-suggest: composer actions')
 
-      ctx.inject(['configForms'], function (settingsCtx) {
-        var face = { ctx: settingsCtx, scopes: { main: settingsCtx.configForms.get(SETTINGS_NS) } }
-        settingsCtx.effect(function () {
-          return settingsCtx.slots.inject(SETTINGS_SLOT, function () {
-            return settingsCtx.slots.register({
-              name: SETTINGS_SLOT,
-              id: SECTION_ID,
-              order: SECTION_ORDER,
-              label: function () { return copy().nav },
-              inject: function () { return face }
-            }, InputSuggestSettingsPage)
-          })
-        }, 'input-suggest: settings page')
-      })
+      // 设置页直接注册在根 ctx 上。
+      //
+      // 早先的写法是 ctx.inject(['configForms'], child => ...) 再在子 ctx 上注册：
+      // 子 ctx 只有 configForms，没有 remote / remote.session，页面里的模型目录读取
+      // 会在渲染期抛错，而 slots 的注册成功、导航项照常出现 —— 表现就是
+      // 「设置里能看到『智能建议』，点进去一片空白」。
+      // 顶层 inject 声明这三个服务，注册留在根 ctx，face 直接拿得到 remote。
+      ctx.effect(function () {
+        return slots.inject(SETTINGS_SLOT, function () {
+          var scope = ctx.configForms.get(SETTINGS_NS)
+          var face = { ctx: ctx, scopes: { main: scope } }
+          return slots.register({
+            name: SETTINGS_SLOT,
+            id: SECTION_ID,
+            order: SECTION_ORDER,
+            label: function () { return copy().nav },
+            inject: function () { return face }
+          }, InputSuggestSettingsPage)
+        })
+      }, 'input-suggest: settings page')
     }
 
     exports.NS = NS
@@ -1189,7 +1221,8 @@ window.__ModuleLoader__.load({
     exports.ACTIONS_SLOT = ACTIONS_SLOT
     exports.SETTINGS_NS = SETTINGS_NS
     exports.apply = apply
-    exports.inject = ['slots']
+    // 顶层依赖：设置页要读模型目录，缺 remote 会在渲染期抛错（导航项在、内容空白）。
+    exports.inject = ['slots', 'configForms', 'remote', 'remote.session']
     exports.GhostSuggestion = GhostSuggestion
     exports.SuggestionActions = SuggestionActions
     exports.InputSuggestSettingsPage = InputSuggestSettingsPage

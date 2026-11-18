@@ -73,7 +73,8 @@ check('exports the documented surface', () => {
   assert.equal(exportsObject.NS, 'dsh-input-suggest')
   assert.equal(exportsObject.SETTINGS_NS, 'input-suggest')
   assert.equal(typeof exportsObject.apply, 'function')
-  assert.deepEqual(exportsObject.inject, ['slots'])
+  // 设置页要读模型目录与配置表单，两者都必须进顶层 inject。
+  assert.deepEqual(exportsObject.inject, ['slots', 'configForms', 'remote', 'remote.session'])
 })
 
 
@@ -112,9 +113,11 @@ check('ghost text requires an idle session and an empty draft', () => {
 
 check('apply registers the ghost overlay and the composer actions', () => {
   const registered = []
+  const scope = { getSnapshot: () => ({ status: 'ready', value: {}, writable: true, revision: 1 }), subscribe: () => () => {}, mutate: async () => {} }
   const ctx = {
     effect: (fn) => fn(),
-    inject: () => {},
+    configForms: { get: () => scope },
+    remote: { session: { modelCatalog: () => Promise.resolve({ ok: true, value: { groups: [] } }) }, $on: () => () => {} },
     slots: {
       inject: (name, fn) => fn(),
       register: (spec, component) => {
@@ -125,14 +128,20 @@ check('apply registers the ghost overlay and the composer actions', () => {
   }
   exportsObject.apply(ctx)
   const names = registered.map((entry) => entry.spec.name)
-  assert.deepEqual(names, ['conversation.input.overlay', 'conversation.input.right'])
+  assert.deepEqual(names, [
+    'conversation.input.overlay',
+    'conversation.input.right',
+    'settings.section',
+  ])
 })
 
 check('the ghost overlay renders nothing while the session is running', () => {
   let registered
+  const scope = { getSnapshot: () => ({ status: 'ready', value: {}, writable: true, revision: 1 }), subscribe: () => () => {}, mutate: async () => {} }
   const ctx = {
     effect: (fn) => fn(),
-    inject: () => {},
+    configForms: { get: () => scope },
+    remote: { session: { modelCatalog: () => Promise.resolve({ ok: true, value: { groups: [] } }) }, $on: () => () => {} },
     slots: {
       inject: (name, fn) => fn(),
       register: (spec, component) => {
@@ -152,24 +161,40 @@ check('the ghost overlay renders nothing while the session is running', () => {
   assert.equal(element, null)
 })
 
+check('the settings page renders even when the config scope is unavailable', () => {
+  const Page = exportsObject.InputSuggestSettingsPage
+  const cases = [
+    { label: 'loading scope', scope: { getSnapshot: () => ({ status: 'loading', value: undefined, writable: false }), subscribe: () => () => {} } },
+    { label: 'throwing getSnapshot', scope: { getSnapshot: () => { throw new Error('boom') }, subscribe: () => () => {} } },
+    { label: 'missing scope', scope: undefined },
+  ]
+  for (const entry of cases) {
+    const tree = Page({ ctx: { configForms: { get: () => entry.scope } }, scopes: { main: entry.scope } })
+    assert.equal(tree.type, 'div', entry.label + ' must still render a root element')
+    assert.ok(tree.children.length > 0, entry.label + ' must render content')
+  }
+})
+
+check('the settings page survives a context without remote', () => {
+  const Page = exportsObject.InputSuggestSettingsPage
+  const scope = { getSnapshot: () => ({ status: 'ready', writable: true, revision: 1, value: { enabled: true } }), subscribe: () => () => {}, mutate: async () => {} }
+  const tree = Page({ ctx: { configForms: { get: () => scope } }, scopes: { main: scope } })
+  assert.equal(tree.type, 'div')
+  assert.ok(tree.children.length > 0)
+})
+
+check('the client declares the services the settings page reads', () => {
+  // 早期只声明 slots，设置页在渲染期读 remote 时抛错，表现为导航项在、内容空白。
+  assert.deepEqual(exportsObject.inject, ['slots', 'configForms', 'remote', 'remote.session'])
+})
+
 check('apply registers the settings page when configForms is present', () => {
   const registered = []
+  const scope = { getSnapshot: () => ({ status: 'ready', value: {}, writable: true, revision: 1 }), subscribe: () => () => {}, mutate: async () => {} }
   const ctx = {
     effect: (fn) => fn(),
-    inject: (services, child) => {
-      assert.deepEqual(services, ['configForms'])
-      child({
-        effect: (fn) => fn(),
-        slots: {
-          inject: (name, fn) => fn(),
-          register: (spec, component) => {
-            registered.push({ spec, component })
-            return () => {}
-          },
-        },
-        configForms: { get: (ns) => ({ ns }) },
-      })
-    },
+    configForms: { get: (ns) => ({ ...scope, ns }) },
+    remote: { session: { modelCatalog: () => Promise.resolve({ ok: true, value: { groups: [] } }) }, $on: () => () => {} },
     slots: {
       inject: (name, fn) => fn(),
       register: (spec, component) => {
