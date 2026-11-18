@@ -132,7 +132,7 @@ dsh-input-suggest/
 
 ```powershell
 cd dsh-input-suggest
-npm test               # 纯逻辑：模块形状、插槽注册、快捷键、预设降级（28 项）
+npm test               # 纯逻辑：模块形状、插槽注册、快捷键、预设页渲染（29 项）
 npm run test:memory    # 画像 / 脱敏 / 模板 / 风格预设（23 项）
 npm run test:usage     # token 账本（9 项）
 npm run test:host      # 真实 cordis：挂载、路由、回合行为、重随回避、预设生效（16 项）

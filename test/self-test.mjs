@@ -254,6 +254,24 @@ check('preset labels follow the interface language and never render empty', () =
 })
 
 check('the settings page renders without a preset catalog', () => {
+
+check('the settings page offers the style preset control', () => {
+  // 预设必须出现在设置页上，否则用户只能改模板 —— 那对「想要方案类输入」的人太贵。
+  const Page = exportsObject.InputSuggestSettingsPage
+  const scope = { getSnapshot: () => ({ status: 'ready', writable: true, revision: 1, value: { stylePreset: 'plan' } }), subscribe: () => () => {}, mutate: async () => {} }
+  const tree = Page({ ctx: { configForms: { get: () => scope } }, scopes: { main: scope } })
+  const texts = []
+  const walk = (node) => {
+    if (node === null || node === undefined || typeof node === 'boolean') return
+    if (typeof node === 'string' || typeof node === 'number') { texts.push(String(node)); return }
+    if (Array.isArray(node)) { for (const child of node) walk(child); return }
+    if (typeof node === 'object') { walk(node.children); return }
+  }
+  walk(tree)
+  const copy = exportsObject.__internals.copy()
+  assert.ok(texts.includes(copy.presetTitle), 'the preset section must be rendered')
+  assert.ok(texts.includes(copy.presetHint), 'the plan / theory hint must be shown')
+})
   // 预设路由读不到时（宿主行未加载、旧版本），页面必须退化成只显示风格文本框。
   const Page = exportsObject.InputSuggestSettingsPage
   const scope = { getSnapshot: () => ({ status: 'ready', writable: true, revision: 1, value: {} }), subscribe: () => () => {}, mutate: async () => {} }
