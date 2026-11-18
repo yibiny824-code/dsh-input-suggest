@@ -5,7 +5,10 @@
 import assert from 'node:assert/strict'
 import { emptyProfile, recordObservation, describeProfile, recentAccepted, similarity, ADOPT_THRESHOLD, languageOf, leadingWordOf, editDistance } from '../lib/memory.js'
 import { redact, isLoopbackEndpoint, outboundDecision, stillLooksSensitive } from '../lib/privacy.js'
-import { renderPrompt, validateTemplate, DEFAULT_TEMPLATE, INSTRUCTIONS, resolveDetail } from '../lib/prompt.js'
+import {
+  renderPrompt, validateTemplate, DEFAULT_TEMPLATE, INSTRUCTIONS, resolveDetail,
+  STYLE_PRESETS, DEFAULT_PRESET, resolvePreset, composeStyle,
+} from '../lib/prompt.js'
 
 let passed = 0
 const failures = []
@@ -157,6 +160,52 @@ check('template validation flags missing and unknown placeholders', () => {
   assert.ok(problems.some((text) => text.includes('{{instructions}}')))
   assert.ok(problems.some((text) => text.includes('{{user}}')))
   assert.deepEqual(validateTemplate(DEFAULT_TEMPLATE), [])
+})
+
+// ── 风格预设 ─────────────────────────────────────────────────────────────
+
+check('every preset carries its own instruction and recommended values', () => {
+  const ids = Object.keys(STYLE_PRESETS)
+  assert.ok(ids.includes('neutral') && ids.includes('plan') && ids.includes('theory'))
+  for (const id of ids) {
+    const preset = STYLE_PRESETS[id]
+    assert.equal(preset.id, id)
+    assert.ok(preset.label.zh !== '' && preset.label.en !== '')
+    assert.ok(['brief', 'standard', 'detailed'].includes(preset.detailLevel))
+    assert.ok(preset.maxChars > 0)
+  }
+  assert.equal(STYLE_PRESETS.neutral.style, '')
+})
+
+check('an unknown preset id falls back to the default instead of breaking', () => {
+  assert.equal(resolvePreset('nope').id, DEFAULT_PRESET)
+  assert.equal(resolvePreset(undefined).id, DEFAULT_PRESET)
+  assert.equal(resolvePreset('PLAN').id, 'plan')
+})
+
+check('the chosen preset and the user text both reach the prompt', () => {
+  const style = composeStyle('theory', 'say why before how')
+  assert.ok(style.includes('mechanisms before coding'))
+  assert.ok(style.includes('say why before how'))
+  const prompt = renderPrompt({ template: DEFAULT_TEMPLATE, style, language: 'English', detailLevel: 'detailed', maxChars: 240 })
+  assert.ok(prompt.includes('mechanisms before coding'))
+  assert.ok(prompt.includes('say why before how'))
+})
+
+check('neutral plus no custom text renders the empty-slot note', () => {
+  assert.equal(composeStyle('neutral', ''), '')
+  assert.equal(composeStyle('neutral', '   '), '')
+  const prompt = renderPrompt({ template: DEFAULT_TEMPLATE, style: composeStyle('neutral', ''), language: 'English', detailLevel: 'standard', maxChars: 80 })
+  assert.ok(prompt.includes('(none configured)'))
+})
+
+check('plan and theory presets describe a shape without writing the answer', () => {
+  for (const id of ['plan', 'theory']) {
+    const style = STYLE_PRESETS[id].style.toLowerCase()
+    assert.ok(style.length > 80, id + ' should describe the shape of the prompt it wants')
+    // 预设只描述「用户会怎么问」，绝不能鼓励模型自己产出方案或推导。
+    assert.match(style, /never write/ )
+  }
 })
 
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed')

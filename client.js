@@ -19,6 +19,7 @@ window.__ModuleLoader__.load({
     var GET_PATH = '/api/input-suggest/get'
     var FEEDBACK_PATH = '/api/input-suggest/feedback'
     var USAGE_PATH = '/api/input-suggest/usage'
+    var PRESETS_PATH = '/api/input-suggest/presets'
     var GENERATE_PATH = '/api/input-suggest/generate'
     var POLL_MS = 900
     var REQUEST_TIMEOUT_MS = 90000
@@ -47,6 +48,13 @@ window.__ModuleLoader__.load({
         styleTitle: '\u63d0\u793a\u8bcd\u4e0e\u98ce\u683c',
         styleHelp: '\u8fd9\u6bb5\u6587\u5b57\u4f1a\u8ffd\u52a0\u5230\u7cfb\u7edf\u63d0\u793a\u8bcd\u672b\u5c3e\uff0c\u7528\u6765\u63a7\u5236\u5efa\u8bae\u7684\u8bed\u6c14\u3001\u957f\u5ea6\u3001\u98ce\u683c\u3002\u7559\u7a7a\u8868\u793a\u53ea\u7528\u5185\u7f6e\u63d0\u793a\u8bcd\u3002',
         stylePlaceholder: '\u4f8b\u5982\uff1a\u7528\u7b80\u77ed\u7684\u4e2d\u6587\u52a8\u8bcd\u5f00\u5934\uff1b\u591a\u63d0\u5177\u4f53\u6587\u4ef6\u540d\uff1b\u4e0d\u8981\u5efa\u8bae\u63d0\u4ea4\u4ee3\u7801\u3002',
+        presetTitle: '\u5efa\u8bae\u98ce\u683c\u9884\u8bbe',
+        presetHelp: '\u9884\u8bbe\u7ed9\u51fa\u4e00\u6bb5\u5199\u4f5c\u6307\u4ee4\u548c\u4e00\u7ec4\u63a8\u8350\u503c\uff08\u8be6\u7ec6\u5ea6\u3001\u6700\u957f\u5b57\u7b26\uff09\u3002\u9009\u62e9\u540e\u4ecd\u53ef\u4fee\u6539\u4e0b\u65b9\u4efb\u4e00\u9879\uff1b\u300c\u81ea\u5b9a\u4e49\u300d\u4e0d\u4f7f\u7528\u9884\u8bbe\u3002',
+        presetCustom: '\u81ea\u5b9a\u4e49\uff08\u4e0d\u7528\u9884\u8bbe\uff09',
+        presetApply: '\u5957\u7528\u8be5\u9884\u8bbe\u7684\u63a8\u8350\u503c',
+        presetHint: '\u60f3\u8981\u65b9\u6848\u7c7b\u8f93\u5165\u9009\u300c\u65b9\u6848 / \u6b65\u9aa4\u300d\uff1b\u7406\u8bba\u63a8\u5bfc\u9009\u300c\u7406\u8bba / \u63a8\u5bfc\u300d\u3002',
+        styleHelpExtra: '\u8fd9\u91cc\u5199\u7684\u4f1a\u8ffd\u52a0\u5728\u9884\u8bbe\u4e4b\u540e\uff1b\u7559\u7a7a\u8868\u793a\u53ea\u7528\u9884\u8bbe\u3002',
+        presetFailed: '\u8bfb\u53d6\u98ce\u683c\u9884\u8bbe\u5931\u8d25\uff0c\u53ef\u624b\u5199\u98ce\u683c\u3002',
         save: '\u4fdd\u5b58',
         saving: '\u4fdd\u5b58\u4e2d',
         saved: '\u5df2\u4fdd\u5b58',
@@ -108,6 +116,13 @@ window.__ModuleLoader__.load({
         styleTitle: 'Prompt and style',
         styleHelp: 'Appended to the system prompt. Use it to steer tone, length and phrasing.',
         stylePlaceholder: 'e.g. short imperative Chinese; name concrete files; never suggest committing.',
+        presetTitle: 'Style preset',
+        presetHelp: 'A preset supplies a writing instruction plus a recommended detail level and character cap. Everything below stays editable; Custom uses no preset.',
+        presetCustom: 'Custom (no preset)',
+        presetApply: 'Apply the recommended values',
+        presetHint: 'Plan / steps suits planning-style prompts; Theory / derivation suits analytical ones.',
+        styleHelpExtra: 'This text is appended after the preset. Leave it empty to use the preset alone.',
+        presetFailed: 'Could not read the preset catalog; write the style by hand.',
         save: 'Save',
         saving: 'Saving',
         saved: 'Saved',
@@ -966,6 +981,54 @@ window.__ModuleLoader__.load({
     }
 
     /** 把 token 数量写成便于阅读的形式。 */
+    /**
+     * 读风格预设目录。
+     *
+     * 预设文本住在宿主侧的 prompt.js；这里只拿 id、名称、说明和推荐值。
+     * 读不到时返回空列表，设置页退化成「只能手写风格」，不会整页空白。
+     */
+    function usePresets() {
+      var state = react.useState({ status: 'loading', presets: [], fallback: '' })
+      var setState = state[1]
+      var nonceState = react.useState(0)
+      var setNonce = nonceState[1]
+
+      react.useEffect(function () {
+        var live = true
+        Promise.resolve()
+          .then(function () {
+            return fetch(PRESETS_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' })
+          })
+          .then(function (response) { return response.ok === true ? response.json() : null })
+          .then(function (body) {
+            if (!live) return
+            var list = body !== null && body !== undefined && Array.isArray(body.presets) ? body.presets : []
+            var fallback = body !== null && body !== undefined && typeof body.default === 'string' ? body.default : ''
+            setState({ status: list.length === 0 ? 'error' : 'ready', presets: list, fallback: fallback })
+          })
+          .catch(function () {
+            if (live) setState({ status: 'error', presets: [], fallback: '' })
+          })
+        return function () { live = false }
+      }, [nonceState[0]])
+
+      return {
+        status: state[0].status,
+        presets: state[0].presets,
+        fallback: state[0].fallback,
+        refresh: function () { setNonce(function (n) { return n + 1 }) }
+      }
+    }
+
+    /** 预设的本地化文本：label / description 可能是 { zh, en }。 */
+    function presetText(field) {
+      if (field === null || field === undefined) return ''
+      if (typeof field === 'string') return field
+      var key = isChinese() ? 'zh' : 'en'
+      var value = field[key] !== undefined ? field[key] : field.en !== undefined ? field.en : field.zh
+      return typeof value === 'string' ? value : ''
+    }
+
     function formatTokens(value) {
       var number = Number(value ?? 0)
       if (!Number.isFinite(number) || number <= 0) return '0'
@@ -1138,6 +1201,7 @@ window.__ModuleLoader__.load({
       var t = copy()
       var catalog = useCatalog(props.ctx)
       var usage = useUsage()
+      var presets = usePresets()
       var scopes = props.scopes
 
       var main = useSection(
@@ -1152,6 +1216,7 @@ window.__ModuleLoader__.load({
             acceptKey: str(source.acceptKey) || 'Tab',
             maxSuggestionChars: String(source.maxSuggestionChars !== undefined ? source.maxSuggestionChars : 240),
             style: str(source.style),
+            stylePreset: str(source.stylePreset) || 'neutral',
             detailLevel: str(source.detailLevel) || 'standard',
             template: str(source.template),
             useMemory: source.useMemory !== false,
@@ -1169,6 +1234,7 @@ window.__ModuleLoader__.load({
             if (draft[flag] !== live[flag]) ops.push({ op: 'set', path: [flag], value: draft[flag] === true })
           }
           if (draft.detailLevel !== live.detailLevel) ops.push({ op: 'set', path: ['detailLevel'], value: draft.detailLevel })
+          if (draft.stylePreset !== live.stylePreset) ops.push({ op: 'set', path: ['stylePreset'], value: draft.stylePreset })
           var textFields = ['provider', 'model', 'reasoningEffort', 'style', 'template']
           for (var index = 0; index < textFields.length; index += 1) {
             var field = textFields[index]
@@ -1194,6 +1260,29 @@ window.__ModuleLoader__.load({
 
       var reset = function () {
         main.reset(main.current)
+      }
+
+      // 风格预设：选中只是写入 stylePreset，模型指令由宿主侧 prompt.js 提供。
+      // 预设的推荐值（详细度、字符上限）不会自动覆盖用户的选择，需要显式「套用」，
+      // 否则用户调过长度之后再点预设会被悄悄改回去。
+      var presetOptions = presets.presets.map(function (preset) {
+        return { value: preset.id, label: presetText(preset.label) }
+      })
+      // 目录读不到、或配置里是个本版没有的预设时，把当前值补进去：
+      // 否则下拉框的 value 匹配不到任何 option，显示成空白。
+      if (main.draft.stylePreset !== '' && !presetOptions.some(function (option) { return option.value === main.draft.stylePreset })) {
+        presetOptions.push({ value: main.draft.stylePreset, label: main.draft.stylePreset + ' (not in catalog)' })
+      }
+      var activePreset = null
+      for (var presetIndex = 0; presetIndex < presets.presets.length; presetIndex += 1) {
+        if (presets.presets[presetIndex].id === main.draft.stylePreset) { activePreset = presets.presets[presetIndex]; break }
+      }
+      var applyPresetValues = function () {
+        if (activePreset === null) return
+        main.edit({
+          detailLevel: str(activePreset.detailLevel) || main.draft.detailLevel,
+          maxSuggestionChars: String(activePreset.maxChars !== undefined ? activePreset.maxChars : main.draft.maxSuggestionChars)
+        })
       }
 
       return react.createElement(
@@ -1275,6 +1364,32 @@ window.__ModuleLoader__.load({
           )
         ),
 
+        // 风格预设：常见诉求（方案类、理论推导等）做成下拉选项，
+        // 选中后写入 stylePreset，由宿主拼进系统提示词；下方仍可自由覆盖。
+        react.createElement(
+          'div',
+          { style: styles.section },
+          react.createElement('div', { style: styles.title }, t.presetTitle),
+          react.createElement('div', { style: styles.help }, t.presetHelp),
+          react.createElement(Select, {
+            value: main.draft.stylePreset,
+            // neutral 本身就是「不加额外指令」，所以没有单独的「自定义」项：
+            // 要补充要求就写在下面的风格文本框，它追加在预设之后。
+            options: presetOptions.length > 0 ? presetOptions : [{ value: 'neutral', label: 'neutral' }],
+            onChange: function (value) { setField('stylePreset', value) }
+          }),
+          activePreset === null ? null : react.createElement('div', { style: styles.help }, presetText(activePreset.description)),
+          activePreset === null ? null : react.createElement('div', { style: styles.actions },
+            react.createElement('button', {
+              type: 'button',
+              style: styles.button,
+              onClick: applyPresetValues
+            }, t.presetApply)
+          ),
+          react.createElement('div', { style: styles.help }, t.presetHint),
+          presets.status === 'error' ? react.createElement('div', { style: styles.notice }, t.presetFailed) : null
+        ),
+
         react.createElement(
           'div',
           { style: styles.section },
@@ -1285,7 +1400,8 @@ window.__ModuleLoader__.load({
             value: main.draft.style,
             placeholder: t.stylePlaceholder,
             onChange: function (event) { setField('style', event.target.value) }
-          })
+          }),
+          react.createElement('div', { style: styles.help }, t.styleHelpExtra)
         ),
 
         react.createElement(
@@ -1463,6 +1579,8 @@ window.__ModuleLoader__.load({
       // 供自检直接驱动共享源，验证「两个订阅者都收到广播」。
       sourceOf: sourceOf,
       publishSource: publishSource
+      ,
+      presetText: presetText
     }
     return module.exports
   }

@@ -13,6 +13,7 @@
         model: ''
         reasoningEffort: ''
         style: ''
+        stylePreset: neutral
         acceptKey: Tab
         detailLevel: standard
         template: ''

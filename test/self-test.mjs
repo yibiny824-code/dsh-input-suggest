@@ -243,6 +243,24 @@ check('the settings page survives a context without remote', () => {
 })
 
 check('the client declares the services the settings page reads', () => {
+
+check('preset labels follow the interface language and never render empty', () => {
+  const internals = exportsObject.__internals
+  const label = { zh: '方案 / 步骤', en: 'Plan / steps' }
+  assert.equal(internals.presetText(label), '方案 / 步骤')
+  assert.equal(internals.presetText('plain'), 'plain')
+  assert.equal(internals.presetText(undefined), '')
+  assert.equal(internals.presetText({ en: 'only english' }), 'only english')
+})
+
+check('the settings page renders without a preset catalog', () => {
+  // 预设路由读不到时（宿主行未加载、旧版本），页面必须退化成只显示风格文本框。
+  const Page = exportsObject.InputSuggestSettingsPage
+  const scope = { getSnapshot: () => ({ status: 'ready', writable: true, revision: 1, value: {} }), subscribe: () => () => {}, mutate: async () => {} }
+  const tree = Page({ ctx: { configForms: { get: () => scope } }, scopes: { main: scope } })
+  assert.equal(tree.type, 'div')
+  assert.ok(tree.children.filter((child) => child !== null).length >= 6, 'six sections expected')
+})
   // 早期只声明 slots，设置页在渲染期读 remote 时抛错，表现为导航项在、内容空白。
   assert.deepEqual(exportsObject.inject, ['slots', 'configForms', 'remote', 'remote.session'])
 })

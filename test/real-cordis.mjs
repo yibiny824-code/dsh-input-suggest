@@ -132,6 +132,7 @@ class FakeStorageDomain extends Service {
 }
 
 const root = new Context()
+root.logger = { warn: (...args) => console.log('  [warn]', ...args) }
 await root.plugin(FakeSessions)
 await root.plugin(FakeLlm)
 await root.plugin(FakeConnection)
@@ -164,6 +165,7 @@ check('the plugin mounts on a real cordis context', () => {
 check('both browser routes are registered under /api', () => {
   assert.ok(connection.routes.has('/api/input-suggest/get'))
   assert.ok(connection.routes.has('/api/input-suggest/generate'))
+  assert.ok(connection.routes.has('/api/input-suggest/presets'))
 })
 
 check('a completed turn generates one suggestion through the configured route', async () => {
@@ -200,6 +202,9 @@ await checkAsync('reroll regenerates even though this turn already has a suggest
   assert.equal(body.status, 'generated')
   assert.equal(body.suggestion.text, '提交一下')
   assert.equal(llm.calls.length, 2)
+  // 重随必须告诉模型「上一句是什么、不要再写一遍」，否则它会复述同一段上下文。
+  assert.match(llm.calls[1].system, /ALREADY SUGGESTED/)
+  assert.match(llm.calls[1].system, /运行测试验证一下/)
 })
 
 await checkAsync('a turn the user cancelled on purpose never generates', async () => {
@@ -238,6 +243,18 @@ await checkAsync('the get route answers null for an unknown session', async () =
   assert.equal(body.suggestion, null)
 })
 
+await checkAsync('the preset catalog route lists the planning and theory presets', async () => {
+  const response = await connection.call('/api/input-suggest/presets', {})
+  const body = await response.json()
+  const ids = body.presets.map((preset) => preset.id)
+  assert.ok(ids.includes('plan') && ids.includes('theory') && ids.includes('neutral'))
+  assert.equal(body.default, 'neutral')
+  // 设置页按界面语言取 label；两种语言都要有，否则英文界面会出现空选项。
+  const plan = body.presets.find((preset) => preset.id === 'plan')
+  assert.ok(plan.label.zh !== '' && plan.label.en !== '')
+  assert.ok(plan.description.zh !== '' && plan.description.en !== '')
+})
+
 await checkAsync('reroll works on a session that predates the plugin', async () => {
   // 老会话从未经过本插件的 turn/end 监听，内部回合号是 0；
   // 生成路由要从历史里回填，否则永远回答「还没有完成的回合」。
@@ -274,6 +291,39 @@ await checkAsync('the generate route answers no-context before any turn', async 
 })
 
 await checkAsync('disposing the fiber withdraws both routes', async () => {
+
+await checkAsync('a model that repeats the old line is asked once more', async () => {
+  // 重随拿到的是同一段上下文，模型很可能再写一遍同样的话。
+  // 第一次回答与当前建议完全相同 → 宿主再问一次，并把「换个角度」写进提示词。
+  const repeat = {
+    id: 'session-repeat',
+    seq: 4,
+    header: { cwd: 'E:\\demo', isSeeded: false },
+    requestHeader: () => ({ config: { provider: 'demo-provider', model: 'demo-model' } }),
+    snapshotEvents: () => [
+      { type: 'turn/start', seq: 0, data: { turn: 1 } },
+      { type: 'user/message', seq: 1, data: { source: { kind: 'user' }, content: [{ type: 'text', text: '修一下 bug' }] } },
+      { type: 'turn/end', seq: 2, data: { turn: 1, reason: { kind: 'completed' } } },
+    ],
+    deriveMessages: () => [
+      { role: 'user', content: [{ type: 'text', text: '修一下 bug' }], source: { kind: 'user' } },
+      { role: 'assistant', content: [{ type: 'text', text: '改好了' }], source: { kind: 'model' } },
+    ],
+  }
+  sessions.populate(repeat)
+  llm.answers.push('先跑一遍 e2e')
+  const first = await connection.call('/api/input-suggest/generate', { sessionId: 'session-repeat' })
+  assert.equal((await first.json()).suggestion.text, '先跑一遍 e2e')
+  const before = llm.calls.length
+  llm.answers.push('先跑一遍 e2e', '再补一个超时用例')
+  const second = await connection.call('/api/input-suggest/generate', { sessionId: 'session-repeat' })
+  const body = await second.json()
+  assert.equal(body.status, 'generated')
+  assert.equal(body.suggestion.text, '再补一个超时用例')
+  assert.equal(llm.calls.length, before + 2, 'a verbatim repeat must trigger one retry')
+  assert.match(llm.calls[before + 1].system, /DIFFERENT next step/)
+})
+
   await fiber.dispose()
   assert.equal(connection.routes.has('/api/input-suggest/get'), false)
   assert.equal(connection.routes.has('/api/input-suggest/generate'), false)
