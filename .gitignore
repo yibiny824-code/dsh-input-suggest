@@ -7,6 +7,9 @@ node_modules/
 **/input_suggest/
 **/input_suggest.json
 
+# 依赖解析入口（安装工具建立，指向 DSH 的 node_modules）
+/node_modules
+
 # 编辑器/系统
 .DS_Store
 Thumbs.db

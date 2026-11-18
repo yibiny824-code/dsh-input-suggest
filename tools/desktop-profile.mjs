@@ -73,6 +73,45 @@ function linkState() {
   }
 }
 
+/**
+ * 本包自己的依赖解析入口。
+ *
+ * 关键：profile 里的 link: 依赖是一个 junction，Node 会先解析到本包的真实路径
+ * （E:\DeepseekHarness\dsh-input-suggest），再按真实路径向上找 node_modules。
+ * 若本包目录里没有 node_modules，宿主半区的 @deepseek-ai/* 与 zod 会全部解析失败，
+ * 整个插件行启动失败 —— 表现为「设置页里没有这一项、输入框也没有建议」。
+ * 所以安装时必须一并准备这个入口。
+ */
+const resolveLinkPath = join(sourceDir, 'node_modules')
+
+/** 找一个能提供 @deepseek-ai 的目录作为解析目标。 */
+function hostModulesDir() {
+  const candidates = [
+    join(profileDir, 'node_modules'),
+    join(dirname(profileDir), 'node_modules'),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, '@deepseek-ai'))) return candidate
+  }
+  return undefined
+}
+
+/** 建立（或校验）本包的依赖解析链接。 */
+function ensureResolveLink() {
+  const host = hostModulesDir()
+  if (host === undefined) return 'host-modules-absent'
+  if (existsSync(resolveLinkPath)) {
+    const target = join(resolveLinkPath, '@deepseek-ai')
+    return existsSync(target) ? 'unchanged' : 'occupied'
+  }
+  try {
+    symlinkSync(host, resolveLinkPath, 'junction')
+    return 'created'
+  } catch (error) {
+    return 'failed: ' + error.message
+  }
+}
+
 function ensureLink() {
   const state = linkState()
   if (state.ours) return 'unchanged'
@@ -102,6 +141,7 @@ function report(manifest) {
     'package        : ' + PACKAGE_NAME + ' (' + sourceDir + ')',
     'profile        : ' + profileDir,
     'dependency     : ' + (manifest.dependencies?.[PACKAGE_NAME] ?? '(absent)'),
+    'resolution     : ' + (existsSync(join(resolveLinkPath, '@deepseek-ai')) ? 'linked' : 'MISSING (plugin will fail to load)'),
     'bundle         : ' + (bundles.includes(PACKAGE_NAME) ? 'selected' : '(absent)'),
     'node_modules   : ' + (link.exists ? (link.ours ? 'mounted' : 'occupied by ' + (link.name ?? 'an unreadable entry')) : '(absent)'),
   ].join('\n'))
@@ -124,6 +164,12 @@ if (command === 'status') {
   const backup = changed ? writeManifest(manifest) : undefined
   const link = ensureLink()
   console.log('install: manifest ' + (changed ? 'updated' : 'already current') + (backup === undefined ? '' : ' (backup: ' + backup + ')') + ', junction ' + link)
+  // 依赖解析链接：没有它，宿主半区在真实路径下解析不到 @deepseek-ai/* 与 zod。
+  const resolveLink = ensureResolveLink()
+  console.log('dependencies : ' + resolveLink + (resolveLink === 'created' ? ' (linked ' + hostModulesDir() + ')' : ''))
+  if (resolveLink === 'host-modules-absent' || resolveLink === 'occupied' || resolveLink.startsWith('failed')) {
+    console.log('注意：依赖解析链接未建立，插件会在启动时报 ERR_MODULE_NOT_FOUND（设置页不会出现）。')
+  }
   report(JSON.parse(readFileSync(manifestPath, 'utf8')))
   console.log('\n下一步：重启一次桌面端，然后刷新界面。')
 } else if (command === 'uninstall') {

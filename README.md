@@ -108,9 +108,19 @@ npm run test:memory    # 画像 / 脱敏 / 模板（18 项）
 npm run test:host      # 真实 cordis：挂载、路由、回合行为（9 项）
 npm run test:storage   # 真实 storage 家族：建议与画像落盘（5 项）
 npm run test:schema    # 配置 schema：volatile 字段与越界拒绝
+npm run test:install   # 安装形态：宿主入口能从安装位置解析依赖
 ```
 
 测试通过 `test/resolve-host.mjs` 把宿主包解析到本机 DSH 安装，仓库里不需要 `node_modules`。
+
+### 安装形态（容易踩的坑）
+
+profile 里的 `link:` 依赖是 junction：Node 先解析到本包真实路径，再按真实路径向上找
+`node_modules`。所以本包目录下必须有一个指向 DSH `node_modules` 的 `node_modules` 链接，
+否则宿主半区的 `@deepseek-ai/*` 与 `zod` 全部解析失败，**整个插件行启动失败**——界面上
+的表现是「设置页里没有这一项、输入框也没有建议」。
+
+`tools/desktop-profile.mjs install` 会自动建立它，`status` 会显示 `resolution: linked`。
 
 ## 已知限制
 
