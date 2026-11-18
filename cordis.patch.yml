@@ -1,0 +1,28 @@
+# dsh-input-suggest 的组合包补丁：向当前 profile 插入一行 input-suggest。
+#
+# 浏览器半区由 package.json 的 dsh.client 声明（exports["./client"]），这里只挂宿主行。
+# 可调字段都在下面；provider/model 留空表示沿用会话最近一次请求的路由。
+#
+# 安全默认：allowRemote 为 false —— 上下文只发给 loopback 端点。
+- insert:
+    - id: input-suggest
+      name: dsh-input-suggest
+      config:
+        enabled: true
+        provider: ''
+        model: ''
+        reasoningEffort: ''
+        style: ''
+        acceptKey: Tab
+        detailLevel: standard
+        template: ''
+        useMemory: true
+        useExamples: true
+        learn: true
+        allowRemote: false
+        maxRecentTurns: 1
+        maxTranscriptChars: 12000
+        maxSuggestionChars: 240
+        maxOutputTokens: 512
+        timeoutMs: 60000
+

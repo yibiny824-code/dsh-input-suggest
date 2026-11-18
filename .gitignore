@@ -1,0 +1,22 @@
+# 运行时与本机遇留
+node_modules/
+.dsh-tmp/
+*.log
+
+# 插件本地状态（画像、建议记录）绝不入库
+**/input_suggest/
+**/input_suggest.json
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 任何本地设置与凭据
+.env
+.env.*
+*.local.json
+credentials*
+secrets*
+
