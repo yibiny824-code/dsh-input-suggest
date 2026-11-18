@@ -202,17 +202,67 @@ await checkAsync('reroll regenerates even though this turn already has a suggest
   assert.equal(llm.calls.length, 2)
 })
 
-await checkAsync('a turn that did not complete never generates', async () => {
+await checkAsync('a turn the user cancelled on purpose never generates', async () => {
   llm.answers.push('不该出现')
   root.emit('session/event', session, { type: 'turn/end', seq: 14, data: { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } } })
   await new Promise((resolve) => setTimeout(resolve, 100))
   assert.equal(llm.calls.length, 2)
 })
 
+await checkAsync('an errored turn still generates a suggestion', async () => {
+  llm.answers.push('换个思路重试')
+  root.emit('session/event', session, { type: 'turn/end', seq: 15, data: { turn: 3, reason: { kind: 'error', error: { message: 'boom', code: 'UNKNOWN' } } } })
+  const deadline = Date.now() + 2000
+  while (Date.now() < deadline && llm.calls.length < 3) await new Promise((resolve) => setTimeout(resolve, 25))
+  assert.equal(llm.calls.length, 3, 'an errored turn must still offer a next step')
+})
+
+await checkAsync('a new user message generates before the turn ends', async () => {
+  llm.answers.push('先看日志')
+  root.emit('session/event', session, { type: 'user/message', seq: 16, data: { source: { kind: 'user' }, content: [{ type: 'text', text: '报错了，怎么办' }] } })
+  const deadline = Date.now() + 2000
+  while (Date.now() < deadline && llm.calls.length < 4) await new Promise((resolve) => setTimeout(resolve, 25))
+  assert.equal(llm.calls.length, 4, 'a human message must trigger an early suggestion')
+})
+
+await checkAsync('injected context is not mistaken for a user message', async () => {
+  const before = llm.calls.length
+  root.emit('session/event', session, { type: 'user/message', seq: 17, data: { source: { kind: 'agent-instructions' }, content: [{ type: 'text', text: 'workspace instructions' }] } })
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  assert.equal(llm.calls.length, before)
+})
+
 await checkAsync('the get route answers null for an unknown session', async () => {
   const response = await connection.call('/api/input-suggest/get', { sessionId: 'nope' })
   const body = await response.json()
   assert.equal(body.suggestion, null)
+})
+
+await checkAsync('reroll works on a session that predates the plugin', async () => {
+  // 老会话从未经过本插件的 turn/end 监听，内部回合号是 0；
+  // 生成路由要从历史里回填，否则永远回答「还没有完成的回合」。
+  const legacy = {
+    id: 'legacy-session',
+    seq: 4,
+    header: { cwd: 'E:\\demo', isSeeded: false },
+    requestHeader: () => ({ config: { provider: 'demo-provider', model: 'demo-model' } }),
+    snapshotEvents: () => [
+      { type: 'turn/start', seq: 0, data: { turn: 1 } },
+      { type: 'user/message', seq: 1, data: { source: { kind: 'user' }, content: [{ type: 'text', text: '修一下 bug' }] } },
+      { type: 'assistant/message', seq: 2, data: { message: { content: [{ type: 'text', text: '改好了' }] } } },
+      { type: 'turn/end', seq: 3, data: { turn: 1, reason: { kind: 'completed' } } },
+    ],
+    deriveMessages: () => [
+      { role: 'user', content: [{ type: 'text', text: '修一下 bug' }], source: { kind: 'user' } },
+      { role: 'assistant', content: [{ type: 'text', text: '改好了' }], source: { kind: 'model' } },
+    ],
+  }
+  sessions.populate(legacy)
+  const before = llm.calls.length
+  const response = await connection.call('/api/input-suggest/generate', { sessionId: 'legacy-session' })
+  const body = await response.json()
+  assert.notEqual(body.status, 'no-context', 'a pre-existing session must not answer no-context')
+  assert.equal(llm.calls.length, before + 1)
 })
 
 await checkAsync('the generate route answers no-context before any turn', async () => {

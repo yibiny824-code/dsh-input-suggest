@@ -21,6 +21,8 @@ window.__ModuleLoader__.load({
     var GENERATE_PATH = '/api/input-suggest/generate'
     var POLL_MS = 900
     var REQUEST_TIMEOUT_MS = 90000
+    /** 提示文字在工具栏上停留多久后自动消失。 */
+    var NOTICE_TTL_MS = 4000
 
 
     var COPY = {
@@ -572,6 +574,24 @@ window.__ModuleLoader__.load({
           request.current = null
         }
       }, [sessionId])
+
+      // 提示自动消失：早先 notice 只被覆盖、从不清除，一次「还没有完成的回合」会永远挂在这里。
+      // 每次结果落地后起一个计时器，到点清掉；同一条提示被新结果替换时重新计时。
+      var noticeTick = react.useRef(0)
+      var noticeSequence = result === null || result.notice === null || result.notice === undefined ? null : result.notice
+      react.useEffect(function () {
+        if (noticeSequence === null) return undefined
+        noticeTick.current += 1
+        var mine = noticeTick.current
+        var timer = setTimeout(function () {
+          if (noticeTick.current !== mine) return
+          setResult(function (previous) {
+            if (previous === null || previous.notice === null) return previous
+            return { sessionId: previous.sessionId, busy: previous.busy, notice: null }
+          })
+        }, NOTICE_TTL_MS)
+        return function () { clearTimeout(timer) }
+      }, [noticeSequence])
 
       var suggestion = source.suggestion
       var editable = running !== true && typeof draft === 'string' && draft.trim() === '' && (phase === undefined || phase === 'plain')
