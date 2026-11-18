@@ -43,6 +43,7 @@
     "test": "node --import ./test/resolve-host.mjs test/self-test.mjs",
     "test:install": "node test/install-shape.mjs",
     "test:memory": "node --import ./test/resolve-host.mjs test/memory-privacy.mjs",
+    "test:usage": "node test/usage.mjs",
     "test:host": "node --import ./test/resolve-host.mjs test/real-cordis.mjs",
     "test:storage": "node --import ./test/resolve-host.mjs test/e2e-storage.mjs",
     "test:schema": "node --import ./test/resolve-host.mjs test/config-schema.mjs",

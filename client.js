@@ -18,6 +18,7 @@ window.__ModuleLoader__.load({
 
     var GET_PATH = '/api/input-suggest/get'
     var FEEDBACK_PATH = '/api/input-suggest/feedback'
+    var USAGE_PATH = '/api/input-suggest/usage'
     var GENERATE_PATH = '/api/input-suggest/generate'
     var POLL_MS = 900
     var REQUEST_TIMEOUT_MS = 90000
@@ -78,7 +79,16 @@ window.__ModuleLoader__.load({
         learn: '持续学习我的使用习惯',
         allowRemote: '允许把上下文发送到非本机端点',
         allowRemoteHelp: '默认关闭：只把上下文发给 loopback（本机）地址。打开后会把最近一轮对话（已脱敏）发给远端模型。',
-        on: '开启'
+        on: '开启',
+        usageTitle: 'Token 用量',
+        usageHelp: '本功能单独记账：辅助模型的每次调用（含没有产出建议的调用）。与会话主模型的开销分开统计。',
+        usageCalls: '调用次数',
+        usageTotal: '合计 token',
+        usageInput: '输入 token',
+        usageOutput: '输出 token',
+        usageAvg: '平均每次',
+        usageFailedCalls: '失败 / 无建议',
+        usageFailed: '读取用量失败',
       },
       en: {
         nav: 'Input suggestions',
@@ -130,7 +140,16 @@ window.__ModuleLoader__.load({
         learn: 'Keep learning my habits',
         allowRemote: 'Allow sending context to non-loopback endpoints',
         allowRemoteHelp: 'Off by default: context only goes to loopback. Turning it on sends the last turn (redacted) to a remote model.',
-        on: 'On'
+        on: 'On',
+        usageTitle: 'Token usage',
+        usageHelp: 'This feature keeps its own ledger: every auxiliary call, including calls that produced no suggestion. Separate from the conversation model.',
+        usageCalls: 'Calls',
+        usageTotal: 'Total tokens',
+        usageInput: 'Input tokens',
+        usageOutput: 'Output tokens',
+        usageAvg: 'Average per call',
+        usageFailedCalls: 'Failed / no suggestion',
+        usageFailed: 'Could not read usage',
       },
     }
 
@@ -322,6 +341,12 @@ window.__ModuleLoader__.load({
     /** 每个会话一份共享轮询：输入框与工具栏不会各发一次请求。 */
     var sources = new Map()
 
+    /** 把一次新值广播给所有订阅者（输入框与工具栏各有一份订阅）。 */
+    function publishSource(source) {
+      var listeners = source.listeners.slice()
+      for (var index = 0; index < listeners.length; index += 1) listeners[index]()
+    }
+
     function sourceOf(sessionId) {
       var existing = sources.get(sessionId)
       if (existing !== undefined) return existing
@@ -341,8 +366,7 @@ window.__ModuleLoader__.load({
           source.pending = false
           if (source.value !== null && sameSuggestion(source.value, next)) return
           source.value = next
-          var listeners = source.listeners.slice()
-          for (var index = 0; index < listeners.length; index += 1) listeners[index]()
+          publishSource(source)
         }).catch(function () {
           source.pending = false
         })
@@ -389,13 +413,14 @@ window.__ModuleLoader__.load({
         suggestion: suggestion,
         refresh: function () {
           if (source === null) return
-          if (source.value !== null) return
           setVersion(function (count) { return count + 1 })
         },
         remember: function (next) {
           if (source === null) return
+          // 写入共享值后必须广播：输入框与工具栏是两个独立订阅者，只更新
+          // 调用者自己的 state 会让另一方停在旧建议上（表现为「点重随没变化」）。
           source.value = next
-          setVersion(function (count) { return count + 1 })
+          publishSource(source)
         }
       }
     }
@@ -797,7 +822,9 @@ window.__ModuleLoader__.load({
       actions: { display: 'flex', alignItems: 'center', gap: 10 },
       button: { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, rgba(128,128,128,.32))', background: 'var(--dsw-alias-bg-layer-1, transparent)', color: 'inherit', cursor: 'pointer', font: 'inherit' },
       primary: { padding: '6px 16px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, rgba(128,128,128,.32))', background: 'var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,.22))', color: 'inherit', cursor: 'pointer', font: 'inherit', fontWeight: 600 },
-      link: { padding: 0, border: 'none', background: 'none', color: 'inherit', opacity: 0.7, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }
+      link: { padding: 0, border: 'none', background: 'none', color: 'inherit', opacity: 0.7, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' },
+      usageGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px 16px', fontSize: 12 },
+      usageValue: { fontVariantNumeric: 'tabular-nums', fontWeight: 600 }
     }
 
     /** 一行：左标签 + 右控件。 */
@@ -898,6 +925,53 @@ window.__ModuleLoader__.load({
       }
 
       return { snapshot: snapshot, current: current, draft: draft, dirty: dirty, edit: edit, reset: reset, save: save, busy: busy, notice: notice }
+    }
+
+    /** 读 Host 的实时模型目录。 */
+    /**
+     * 读本功能的 token 账本。
+     *
+     * 与建议本身不同，账本是长期累计的统计，不需要 900ms 轮询；
+     * 设置页打开时读一次，用户点「刷新」再读一次。
+     */
+    function useUsage() {
+      var state = react.useState({ status: 'idle', usage: null })
+      var nonceState = react.useState(0)
+      var setNonce = nonceState[1]
+
+      react.useEffect(function () {
+        var live = true
+        state[1]({ status: 'loading', usage: state[0].usage })
+        Promise.resolve()
+          .then(function () {
+            return fetch(USAGE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' })
+          })
+          .then(function (response) { return response.ok === true ? response.json() : null })
+          .then(function (body) {
+            if (!live) return
+            var usage = body !== null && body !== undefined && typeof body === 'object' ? body.usage : null
+            state[1]({ status: usage === null || usage === undefined ? 'error' : 'ready', usage: usage ?? null })
+          })
+          .catch(function () {
+            if (live) state[1]({ status: 'error', usage: state[0].usage })
+          })
+        return function () { live = false }
+      }, [nonceState[0]])
+
+      return {
+        status: state[0].status,
+        usage: state[0].usage,
+        refresh: function () { setNonce(function (n) { return n + 1 }) },
+      }
+    }
+
+    /** 把 token 数量写成便于阅读的形式。 */
+    function formatTokens(value) {
+      var number = Number(value ?? 0)
+      if (!Number.isFinite(number) || number <= 0) return '0'
+      if (number >= 1000000) return (number / 1000000).toFixed(2) + 'M'
+      if (number >= 1000) return (number / 1000).toFixed(1) + 'k'
+      return String(Math.round(number))
     }
 
     /** 读 Host 的实时模型目录。 */
@@ -1063,6 +1137,7 @@ window.__ModuleLoader__.load({
     function InputSuggestSettingsPage(props) {
       var t = copy()
       var catalog = useCatalog(props.ctx)
+      var usage = useUsage()
       var scopes = props.scopes
 
       var main = useSection(
@@ -1274,6 +1349,39 @@ window.__ModuleLoader__.load({
           react.createElement('div', { style: styles.help }, t.allowRemoteHelp)
         ),
 
+        // token 用量：本功能自己的账本，与会话主模型的消耗分开看。
+        react.createElement(
+          'div',
+          { style: styles.section },
+          react.createElement('div', { style: styles.title }, t.usageTitle),
+          react.createElement('div', { style: styles.help }, t.usageHelp),
+          usage.status === 'error'
+            ? react.createElement('div', { style: styles.notice }, t.usageFailed)
+            : react.createElement(
+              'div',
+              { style: styles.usageGrid },
+              react.createElement('span', null, t.usageCalls),
+              react.createElement('span', { style: styles.usageValue }, String(usage.usage?.calls ?? 0)),
+              react.createElement('span', null, t.usageTotal),
+              react.createElement('span', { style: styles.usageValue }, formatTokens(usage.usage?.totalTokens)),
+              react.createElement('span', null, t.usageInput),
+              react.createElement('span', { style: styles.usageValue }, formatTokens(usage.usage?.inputTokens)),
+              react.createElement('span', null, t.usageOutput),
+              react.createElement('span', { style: styles.usageValue }, formatTokens(usage.usage?.outputTokens)),
+              react.createElement('span', null, t.usageAvg),
+              react.createElement('span', { style: styles.usageValue }, formatTokens(usage.usage?.avgTokensPerCall)),
+              react.createElement('span', null, t.usageFailedCalls),
+              react.createElement('span', { style: styles.usageValue }, String(usage.usage?.failures ?? 0))
+            ),
+          react.createElement('div', { style: styles.actions },
+            react.createElement('button', {
+              type: 'button',
+              style: styles.link,
+              onClick: usage.refresh,
+            }, t.refresh)
+          )
+        ),
+
         main.notice !== '' ? react.createElement('div', { style: styles.notice }, main.notice) : null,
         react.createElement(
           'div',
@@ -1351,6 +1459,10 @@ window.__ModuleLoader__.load({
       encodeKey: encodeKey,
       isSuggestion: isSuggestion,
       currentSuggestion: currentSuggestion
+      ,
+      // 供自检直接驱动共享源，验证「两个订阅者都收到广播」。
+      sourceOf: sourceOf,
+      publishSource: publishSource
     }
     return module.exports
   }

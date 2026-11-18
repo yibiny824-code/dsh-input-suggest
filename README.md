@@ -87,6 +87,7 @@ node tools/desktop-profile.mjs uninstall
 - **输出处理**：控制字符清洗 → 引号/围栏剥离 → 语义过滤 → 长度截断（详细度上限与配置上限取小）。
 - **学习**：浏览器在草稿从空变成有文本时上报最终文本，宿主与上一条建议做相似度比对（编辑距离 + 包含判据），写入本地画像；重随记一次明确拒绝。
 - **存储**：domain `input_suggest`，`per-record` 布局，`backup-and-skip` —— 记录坏了不阻塞启动。
+- **Token 账本**：本功能单独记账（表 `usage`），只记计量字段：调用次数、输入/输出/缓存/推理 token、按路由聚合的合计与平均。没有产出建议的调用也计费入账，否则数字会系统性偏低。设置页「Token 用量」区块展示，`POST /api/input-suggest/usage` 读取。与会话主模型的消耗分开统计。
 - **传输**：`connection.fetch.register` 挂在 `/api` 网关上（`get` / `generate` / `feedback`），浏览器用普通 `fetch`。
 
 ## 文件
@@ -110,6 +111,7 @@ dsh-input-suggest/
 cd dsh-input-suggest
 npm test               # 纯逻辑：模块形状、插槽注册、快捷键、清洗与过滤（20 项）
 npm run test:memory    # 画像 / 脱敏 / 模板（18 项）
+npm run test:usage     # token 账本（9 项）
 npm run test:host      # 真实 cordis：挂载、路由、回合行为（9 项）
 npm run test:storage   # 真实 storage 家族：建议与画像落盘（5 项）
 npm run test:schema    # 配置 schema：volatile 字段与越界拒绝

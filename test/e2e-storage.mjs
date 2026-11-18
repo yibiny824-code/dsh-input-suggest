@@ -192,6 +192,20 @@ await checkAsync('a feedback report teaches the local profile and reaches the pr
   assert.doesNotMatch(llm.calls[1].system, /\{\{/)
 })
 
+await checkAsync('token usage is recorded and served over the usage route', async () => {
+  const response = await app.connection.call('/api/input-suggest/usage', {})
+  const body = await response.json()
+  assert.ok(body.usage !== undefined && body.usage !== null, 'expected a usage summary')
+  assert.ok(body.usage.calls >= 1, 'the completed turn must have been counted')
+  assert.ok(body.usage.totalTokens >= 0)
+  const dir = join(root, 'input_suggest', 'usage')
+  const names = readdirSync(dir)
+  assert.equal(names.length, 1, 'expected one usage document')
+  const document = JSON.parse(readFileSync(join(dir, names[0]), 'utf8'))
+  assert.equal(document.record.calls, body.usage.calls)
+  assert.equal(document.record.version, 1)
+})
+
 await checkAsync('the storage domain file is version-stamped and per-record', () => {
   const dir = join(root, 'input_suggest', 'sessions')
   const names = readdirSync(dir)

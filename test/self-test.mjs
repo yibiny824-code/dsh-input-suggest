@@ -110,6 +110,27 @@ check('encodeKey round-trips through parseAcceptKey', () => {
   assert.equal(exportsObject.__internals.encodeKey('ShiftLeft', { shift: true }), undefined)
 })
 
+check('publishing a new suggestion notifies every subscriber', () => {
+  // 回归：输入框与工具栏各有一份独立订阅。早先 remember() 只更新调用者自己的
+  // React state，另一方停在旧建议上 —— 用户点重随后看到的画面没有变化。
+  const internals = exportsObject.__internals
+  const source = internals.sourceOf('s-share-' + String(Math.random()))
+  let overlayHits = 0
+  let actionsHits = 0
+  source.listeners.push(() => { overlayHits += 1 })
+  source.listeners.push(() => { actionsHits += 1 })
+  source.value = { turn: 2, text: 'new', truncated: false, acceptKey: 'Tab' }
+  internals.publishSource(source)
+  assert.equal(overlayHits, 1, 'the ghost overlay must be notified')
+  assert.equal(actionsHits, 1, 'the toolbar must be notified too')
+  assert.equal(source.value.text, 'new')
+  // 清理轮询，避免测试进程挂住。
+  for (const listener of source.listeners.slice()) source.listeners.pop()
+  source.controller.abort()
+  clearInterval(source.timer)
+  internals.releaseSource?.(source)
+})
+
 check('the composer exposes a manual summon control next to reroll', () => {
   const { SuggestionActions } = exportsObject
   const scope = { getSnapshot: () => ({ status: 'ready', value: {}, writable: true, revision: 1 }), subscribe: () => () => {}, mutate: async () => {} }
