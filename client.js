@@ -23,6 +23,8 @@ window.__ModuleLoader__.load({
     var REQUEST_TIMEOUT_MS = 90000
     /** 提示文字在工具栏上停留多久后自动消失。 */
     var NOTICE_TTL_MS = 4000
+    /** 手动触发建议的快捷键：焦点在输入框里按它，立刻生成一条。 */
+    var MANUAL_KEY = 'Alt+Slash'
 
 
     var COPY = {
@@ -54,6 +56,7 @@ window.__ModuleLoader__.load({
         catalogFailed: '\u6a21\u578b\u76ee\u5f55\u8bfb\u53d6\u5931\u8d25\uff0c\u53ef\u70b9\u300c\u5237\u65b0\u300d\u3002',
         refresh: '\u5237\u65b0\u6a21\u578b',
         regenerate: '\u91cd\u968f',
+        summon: '\u751f\u6210\u5efa\u8bae',
         accept: '\u91c7\u7eb3\u5efa\u8bae',
         generating: '\u751f\u6210\u4e2d',
         empty: '\u8fd9\u4e00\u8f6e\u6ca1\u6709\u660e\u786e\u7684\u4e0b\u4e00\u6b65',
@@ -105,6 +108,7 @@ window.__ModuleLoader__.load({
         catalogFailed: 'Could not read the model catalog. Try Refresh.',
         refresh: 'Refresh models',
         regenerate: 'Reroll',
+        summon: 'Generate suggestion',
         accept: 'Accept suggestion',
         generating: 'Generating',
         empty: 'No obvious next step for this turn',
@@ -265,8 +269,6 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** 显式请求一次重新生成。 */
-    async function requestGeneration(sessionId, signal) {
     /**
      * 把「用户实际发出的文本」报给宿主做隐式学习。
      * 静默失败：学习永远不该干扰发消息。
@@ -284,6 +286,8 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 显式请求一次重新生成。 */
+    async function requestGeneration(sessionId, signal) {
       try {
         var response = await fetch(GENERATE_PATH, {
           method: 'POST',
@@ -397,6 +401,44 @@ window.__ModuleLoader__.load({
     }
 
 
+    /**
+     * 主动触发：空闲时自己向宿主要一条建议，而不是只等回合事件。
+     *
+     * 判断依据全部来自客户端已经拿到的状态：会话空闲、草稿为空、且最近一次
+     * 用户活动已经过去了 IDLE_DELAY_MS。这样做的效果是「打开会话、停一会儿
+     * 就有建议」，不再依赖某一轮是否跑完。
+     *
+     * 冷却与去重：
+     *   - 每会话 IDLE_COOLDOWN_MS 内最多一次主动请求；
+     *   - 已经显示建议时不请求；
+     *   - 宿主回答 busy / no-context 时安静退让，不重试也不弹提示。
+     * @param {string} sessionId - 会话 id。
+     * @param {object} options - `{ idle: boolean, hasSuggestion: boolean }`。
+     * @returns {object|null} 新建议，或 null。
+     */
+    var IDLE_DELAY_MS = 1200
+    var IDLE_COOLDOWN_MS = 15000
+    var idleRequests = new Map()
+
+    function requestIfIdle(sessionId, options) {
+      if (typeof sessionId !== 'string' || sessionId === '') return Promise.resolve(null)
+      if (options.idle !== true) return Promise.resolve(null)
+      if (options.hasSuggestion === true) return Promise.resolve(null)
+      var now = Date.now()
+      var last = idleRequests.get(sessionId)
+      if (typeof last === 'number' && now - last < IDLE_COOLDOWN_MS) return Promise.resolve(null)
+      if (typeof AbortController !== 'function') return Promise.resolve(null)
+      idleRequests.set(sessionId, now)
+      var controller = new AbortController()
+      var timer = setTimeout(function () { controller.abort() }, REQUEST_TIMEOUT_MS)
+      return requestGeneration(sessionId, controller.signal)
+        .then(function (response) {
+          return response.status === 'generated' ? response.suggestion : null
+        })
+        .catch(function () { return null })
+        .finally(function () { clearTimeout(timer) })
+    }
+
     var STYLE_TAG_ID = 'dsh-input-suggest-style'
     var styleUsers = 0
 
@@ -483,6 +525,26 @@ window.__ModuleLoader__.load({
         window.addEventListener('keydown', onKeyDown)
         return function () { window.removeEventListener('keydown', onKeyDown) }
       }, [text, matcher, inputActions])
+
+      // 主动触发：会话空闲、草稿为空、停止活动 IDLE_DELAY_MS 之后，自己去要一条。
+      // 不依赖回合事件，所以「刚打开会话」「上一轮早就答完」也会有建议。
+      var idleTimer = react.useRef(null)
+      react.useEffect(function () {
+        if (sessionId === undefined || sessionId === null) return undefined
+        var idle = running !== true && typeof draft === 'string' && draft.trim() === ''
+        var hasSuggestion = suggestion !== null && suggestion !== undefined
+        if (idleTimer.current !== null) { clearTimeout(idleTimer.current); idleTimer.current = null }
+        if (!idle) return undefined
+        idleTimer.current = setTimeout(function () {
+          idleTimer.current = null
+          void requestIfIdle(sessionId, { idle: true, hasSuggestion: hasSuggestion }).then(function (next) {
+            if (next !== null && next !== undefined) source.remember(next)
+          })
+        }, IDLE_DELAY_MS)
+        return function () {
+          if (idleTimer.current !== null) { clearTimeout(idleTimer.current); idleTimer.current = null }
+        }
+      }, [sessionId, running, draft, suggestion])
 
       // 隐式学习：上一条建议还在展示时，用户自己把草稿写成了一段话，
       // 说明他放弃了建议（或者自己写得更好）。报一次后停止观察这一条。
@@ -595,6 +657,8 @@ window.__ModuleLoader__.load({
 
       var suggestion = source.suggestion
       var editable = running !== true && typeof draft === 'string' && draft.trim() === '' && (phase === undefined || phase === 'plain')
+      // 「主动要一条」只在会话空闲时出现：正在生成时按钮会被忙碌态盖住。
+      var editingAllowed = running !== true && (phase === undefined || phase === 'plain')
       var busy = result !== null && result.sessionId === sessionId && result.busy === true
       var notice = result !== null && result.sessionId === sessionId ? result.notice : null
 
@@ -605,10 +669,14 @@ window.__ModuleLoader__.load({
         inputActions.setDraft(suggestion.text)
       }
 
-      /** 重随：显式再生成一次。 */
+      /**
+       * 显式生成一次（重随 / 手动触发共用）。
+       * 传 `manual: true` 时即使当前没有建议也能发起，用于「用户主动要一条」。
+       */
       var reroll = function () {
         if (busy === true || request.current !== null) return
         if (typeof AbortController !== 'function') return
+        if (sessionId === undefined || sessionId === null) return
         var controller = new AbortController()
         request.current = controller
         setResult({ sessionId: sessionId, busy: true, notice: null })
@@ -638,6 +706,22 @@ window.__ModuleLoader__.load({
         })
       }
 
+      // 手动快捷键：放在 reroll 定义之后，避免在初始化前引用它。
+      react.useEffect(function () {
+        if (typeof window === 'undefined' || sessionId === undefined || sessionId === null) return undefined
+        var matcher = parseAcceptKey(MANUAL_KEY)
+        if (matcher === undefined) return undefined
+        var onKeyDown = function (event) {
+          if (event.isComposing === true) return
+          if (matcher(event) !== true) return
+          if (isComposerFocused() !== true) return
+          event.preventDefault()
+          reroll()
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return function () { window.removeEventListener('keydown', onKeyDown) }
+      }, [sessionId, reroll])
+
       var children = []
       if (busy === true) {
         children.push(react.createElement('span', { key: 'spin', style: { display: 'inline-flex', alignItems: 'center', opacity: 0.7 } },
@@ -656,6 +740,20 @@ window.__ModuleLoader__.load({
           onMouseDown: function (event) { event.preventDefault() },
           onClick: accept
         }, icon(['m3 8.5 3.2 3.2L13 4.8'])))
+      }
+      // 没有建议时的主动入口：不用等回合、不用改设置，点一下就要一条。
+      if ((suggestion === null || suggestion === undefined) && editingAllowed) {
+        children.push(react.createElement('button', {
+          key: 'summon',
+          type: 'button',
+          className: 'dsh-input-suggest-action',
+          title: t.summon + ' (' + MANUAL_KEY + ')',
+          'aria-label': t.summon,
+          'data-input-suggest-summon': '',
+          disabled: busy === true,
+          onMouseDown: function (event) { event.preventDefault() },
+          onClick: reroll
+        }, icon(['M8 2.2v3', 'M8 10.8v3', 'M2.2 8h3', 'M10.8 8h3', 'M4 4l1.8 1.8', 'M10.2 10.2L12 12', 'M12 4l-1.8 1.8', 'M5.8 10.2L4 12'])))
       }
       children.push(react.createElement('button', {
         key: 'reroll',

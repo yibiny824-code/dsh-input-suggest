@@ -76,7 +76,12 @@ node tools/desktop-profile.mjs uninstall
 
 ## 机制
 
-- **生成**：监听 `session/event`，只认 `turn/end` 且 `reason.kind === 'completed'`；同一回合只跑一次，新回合开始即中断在途请求。
+- **触发（三路）**：
+  1. **事件被动触发**：`turn/end` 之后生成。正常完成、出错、触顶都算；只有用户主动取消跳过。
+  2. **输入即触发**：用户发出消息（`source.kind === 'user'`）就用「刚说的话 + 上一轮回答」先生成一条，不等回合结束；20 秒冷却。
+  3. **主动触发**：会话空闲、草稿为空、停止活动 1.2 秒后，浏览器自己向宿主要一条（15 秒冷却）；另有工具栏按钮与 `Alt+/` 快捷键随时手动要。
+
+  之所以不靠单一事件：一个回合没跑完时 `turn/end` 永远不会到；而连续追问时，上一轮一结束就被下一次 `turn/start` 打断，建议窗口几乎是空的。
 - **上下文**：`session.deriveMessages()` 取最近若干轮的 user/assistant 文本，经脱敏后框架化。
 - **调用**：`ctx.llm.stream({ provider, model, system, messages, maxTokens })`，`BlockAssembler` 装配。
 - **输出处理**：控制字符清洗 → 引号/围栏剥离 → 语义过滤 → 长度截断（详细度上限与配置上限取小）。

@@ -55,10 +55,18 @@ new Function(clientSource)()
 
 assert.equal(loaded?.id, 'dsh-input-suggest', 'client module id')
 
+/** 收集每次渲染注册的清理函数，测试结束统一执行，避免定时器把进程挂住。 */
+const effectCleanups = []
+
 const reactStub = {
   createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }),
   useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
-  useEffect: () => {},
+  // 真实 React 会执行 effect 并保留返回的清理函数；桩也要这样做，否则
+  // 组件里的定时器/订阅永远不会被释放（测试进程会挂住）。
+  useEffect: (effect) => {
+    const cleanup = effect()
+    if (typeof cleanup === 'function') effectCleanups.push(cleanup)
+  },
   useMemo: (factory) => factory(),
   useCallback: (fn) => fn,
   useRef: (initial) => ({ current: initial }),
@@ -100,6 +108,36 @@ check('encodeKey round-trips through parseAcceptKey', () => {
   const matcher = exportsObject.__internals.parseAcceptKey(spec)
   assert.equal(matcher({ code: 'Slash', altKey: true, ctrlKey: false, metaKey: false, shiftKey: false }), true)
   assert.equal(exportsObject.__internals.encodeKey('ShiftLeft', { shift: true }), undefined)
+})
+
+check('the composer exposes a manual summon control next to reroll', () => {
+  const { SuggestionActions } = exportsObject
+  const scope = { getSnapshot: () => ({ status: 'ready', value: {}, writable: true, revision: 1 }), subscribe: () => () => {}, mutate: async () => {} }
+  const tree = SuggestionActions({
+    sessionId: 's-manual',
+    useSession: (select) => select({ running: false }),
+    useInput: (select) => select({ draft: '', phase: 'plain' }),
+    inputActions: { setDraft: () => {} },
+  })
+  // createElement('span', ..., children, notice) 会把整个数组作为第一个子节点，
+  // 断言前先展平。
+  const flat = tree.children.flat(2).filter((child) => child !== null && child !== undefined)
+  const props = flat.map((child) => (child !== null && typeof child === 'object' ? child.props ?? {} : {}))
+  assert.ok(props.some((p) => p['data-input-suggest-summon'] !== undefined), 'expected a summon button')
+  assert.ok(props.some((p) => p['data-input-suggest-reroll'] !== undefined), 'expected the reroll button')
+})
+
+check('the summon control disappears while the session is running', () => {
+  const { SuggestionActions } = exportsObject
+  const tree = SuggestionActions({
+    sessionId: 's-busy',
+    useSession: (select) => select({ running: true }),
+    useInput: (select) => select({ draft: '', phase: 'plain' }),
+    inputActions: { setDraft: () => {} },
+  })
+  const flat = tree.children.flat(2).filter((c) => c !== null && c !== undefined)
+  const props = flat.map((c) => (c !== null && typeof c === 'object' ? c.props ?? {} : {}))
+  assert.equal(props.some((p) => p['data-input-suggest-summon'] !== undefined), false)
 })
 
 check('ghost text requires an idle session and an empty draft', () => {
@@ -322,6 +360,15 @@ check('stored records round-trip through the domain schema', () => {
   assert.deepEqual(host.toSuggestion(record), suggestion)
   assert.equal(host.toSuggestion({ version: 1, turn: 1, text: '', truncated: false, acceptKey: 'Tab' }), undefined)
 })
+
+/** 渲染期间注册的定时器可能真实存在；统一清理，保证测试进程能退出。 */
+for (const cleanup of effectCleanups) {
+  try {
+    cleanup()
+  } catch {
+    // 清理失败不影响断言结果。
+  }
+}
 
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed')
 if (failures.length > 0) process.exitCode = 1
