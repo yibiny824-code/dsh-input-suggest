@@ -292,6 +292,40 @@ await checkAsync('the generate route answers no-context before any turn', async 
 
 await checkAsync('disposing the fiber withdraws both routes', async () => {
 
+await checkAsync('a configured preset reaches the system prompt end to end', async () => {
+  // 单独挂一份配置：验证 generate() 真的用上了 stylePreset，
+  // 而不只是在纯函数里能拼出来。
+  const second = new Context()
+  await second.plugin(FakeSessions)
+  await second.plugin(FakeLlm)
+  await second.plugin(FakeConnection)
+  await second.plugin(FakeStorageDomain)
+  const session2 = makeSession('session-theory')
+  second.sessions.populate(session2)
+  await second.plugin(plugin, {
+    enabled: true,
+    provider: 'demo-provider',
+    model: 'demo-model',
+    stylePreset: 'theory',
+    style: 'prefer closed-form answers',
+    acceptKey: 'Tab',
+    maxSuggestionChars: 240,
+    maxOutputTokens: 128,
+    timeoutMs: 5000,
+    maxRecentTurns: 1,
+    maxTranscriptChars: 4000,
+  })
+  second.emit('session/event', session2, { type: 'turn/start', seq: 11, data: { turn: 1 } })
+  second.emit('session/event', session2, { type: 'turn/end', seq: 12, data: { turn: 1, reason: { kind: 'completed' } } })
+  const deadline = Date.now() + 2000
+  while (Date.now() < deadline && second.llm.calls.length === 0) await new Promise((resolve) => setTimeout(resolve, 25))
+  assert.equal(second.llm.calls.length, 1)
+  const system = second.llm.calls[0].system
+  assert.match(system, /mechanisms before coding/, 'the theory preset must reach the model')
+  assert.match(system, /prefer closed-form answers/, 'the custom style must be appended')
+})
+
+
 await checkAsync('a model that repeats the old line is asked once more', async () => {
   // 重随拿到的是同一段上下文，模型很可能再写一遍同样的话。
   // 第一次回答与当前建议完全相同 → 宿主再问一次，并把「换个角度」写进提示词。
