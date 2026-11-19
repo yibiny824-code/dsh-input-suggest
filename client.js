@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
         refresh: '\u5237\u65b0\u6a21\u578b',
         regenerate: '\u91cd\u968f',
         refine: '\u4f18\u5316\u63d0\u793a\u8bcd',
+        staleDraft: '\u8349\u7a3f\u5df2\u53d8\u66f4\uff0c\u5df2\u653e\u5f03\u8986\u76d6\uff1b\u518d\u70b9\u4e00\u6b21\u5373\u53ef\u7528\u6700\u65b0\u8349\u7a3f\u91cd\u65b0\u4f18\u5316',
         summon: '\u751f\u6210\u5efa\u8bae',
         accept: '\u91c7\u7eb3\u5efa\u8bae',
         generating: '\u751f\u6210\u4e2d',
@@ -187,6 +188,7 @@ window.__ModuleLoader__.load({
         refresh: 'Refresh models',
         regenerate: 'Reroll',
         refine: 'Refine prompt',
+        staleDraft: 'Draft changed while refining; press again to refine the latest text',
         summon: 'Generate suggestion',
         accept: 'Accept suggestion',
         generating: 'Generating',
@@ -1450,6 +1452,9 @@ window.__ModuleLoader__.load({
       var result = resultState[0]
       var setResult = resultState[1]
       var request = react.useRef(null)
+      // 响应回调读最新草稿的 ref：闭包里的 draft 是发起请求那一刻的渲染快照。
+      var liveDraftRef = react.useRef('')
+      liveDraftRef.current = typeof draft === 'string' ? draft : ''
 
       react.useEffect(function () {
         setResult(null)
@@ -1510,6 +1515,7 @@ window.__ModuleLoader__.load({
         var options = {
           trigger: 'manual',
           draft: typeof draft === 'string' && draft.trim() !== '' ? draft : undefined,
+          draftAtRequest: typeof draft === 'string' ? draft : '',
           suggestionId: currentSuggestion === null || currentSuggestion === undefined
             ? undefined
             : suggestionIdentity(currentSuggestion)
@@ -1517,6 +1523,17 @@ window.__ModuleLoader__.load({
         void requestGeneration(sessionId, flight.signal, options).then(function (response) {
           if (request.current !== flight || flight.owns() !== true) return
           if (response.status === 'generated') {
+            if (options.draft !== undefined) {
+              // 优化提示词：结果整替草稿（setDraft 是宿主的整替语义；insertText 只是光标插入）。
+              // 等待期间用户又打了字就放弃整替，避免覆盖新输入；重试会带上最新草稿。
+              if (liveDraftRef.current === options.draftAtRequest) {
+                inputActions.setDraft(response.suggestion.text)
+                setResult({ sessionId: sessionId, busy: false, notice: null })
+              } else {
+                setResult({ sessionId: sessionId, busy: false, notice: t.staleDraft })
+              }
+              return
+            }
             source.remember(response.suggestion)
             source.refresh()
             setResult({ sessionId: sessionId, busy: false, notice: null })
