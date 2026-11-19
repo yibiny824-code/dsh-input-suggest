@@ -555,6 +555,25 @@ await checkAsync('a reroll without a draft keeps the normal generation path', as
   }
 })
 
+await checkAsync('a fresh session with a draft still refines the prompt', async () => {
+  // 新会话没有已完成回合，但草稿本身就是优化模式的上下文：
+  // 不允许被回合门槛拦成 no-context（用户实测踩到的 bug）。
+  // 放在预算消耗型测试之后：本测试允许 limited（全局手动预算可能已耗尽）。
+  const fresh = makeSession('session-fresh-draft')
+  sessions.populate(fresh)
+  llm.answers.push('帮我把登录页的表单校验补全')
+  const response = await connection.call('/api/input-suggest/generate', {
+    sessionId: 'session-fresh-draft',
+    trigger: 'manual',
+    draft: '帮我修一下登录',
+  })
+  const body = await response.json()
+  assert.notEqual(body.status, 'no-context')
+  if (body.status === 'generated') {
+    assert.match(llm.calls[llm.calls.length - 1].system, /REFINE MODE/)
+  }
+})
+
 await checkAsync('disposing the fiber withdraws both routes', async () => {
   await fiber.dispose()
   assert.equal(connection.routes.has('/api/input-suggest/get'), false)
