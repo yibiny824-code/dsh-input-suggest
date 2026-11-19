@@ -65,6 +65,7 @@ window.__ModuleLoader__.load({
         catalogFailed: '\u6a21\u578b\u76ee\u5f55\u8bfb\u53d6\u5931\u8d25\uff0c\u53ef\u70b9\u300c\u5237\u65b0\u300d\u3002',
         refresh: '\u5237\u65b0\u6a21\u578b',
         regenerate: '\u91cd\u968f',
+        refine: '\u4f18\u5316\u63d0\u793a\u8bcd',
         summon: '\u751f\u6210\u5efa\u8bae',
         accept: '\u91c7\u7eb3\u5efa\u8bae',
         generating: '\u751f\u6210\u4e2d',
@@ -78,7 +79,7 @@ window.__ModuleLoader__.load({
         detailDetailed: '详细（含具体目标）',
         detailHelp: '控制建议的长度与具体程度；与「最长字符数」取较小者生效。',
         templateTitle: '提示词模板（高级）',
-        templateHelp: '可用占位符：{{instructions}} {{style}} {{memory}} {{examples}} {{language}} {{detail}} {{maxChars}}。留空使用内置模板；删掉 {{instructions}} 时会自动补回内置约束。',
+        templateHelp: '可用占位符：{{instructions}} {{style}} {{format}} {{memory}} {{examples}} {{language}} {{detail}} {{maxChars}} {{task}} {{extended}} {{mode}}。留空使用内置模板；删掉 {{instructions}} 时会自动补回内置约束。',
         templatePlaceholder: '留空 = 使用内置模板',
         templateMemory: '在模板里注入本地画像',
         templateExamples: '注入最近采纳的建议作为示例',
@@ -97,6 +98,58 @@ window.__ModuleLoader__.load({
         usageAvg: '平均每次',
         usageFailedCalls: '失败 / 无建议',
         usageFailed: '读取用量失败',
+        strategyTitle: '建议策略',
+        formatTitle: '输出格式',
+        formatHelp: '与风格预设独立，只决定建议的形状。结构化 / 分步 / 研究格式是多行建议，其余为单行。',
+        formatSingle: '单行（默认）',
+        formatConcise: '极简指令',
+        formatStructured: '结构化（目标 / 步骤 / 验收）',
+        formatSteps: '分步执行',
+        formatResearch: '研究分析（问题 / 假设 / 分析 / 结论）',
+        formatCustom: '自定义结构',
+        formatTemplateLabel: '自定义结构说明',
+        formatTemplateHelp: '仅在输出格式选「自定义结构」时生效：告诉模型每行怎么组织。',
+        formatTemplatePlaceholder: '例如：第一行目标；第二行两个步骤，用分号分隔；第三行验收条件。',
+        mode: '建议模式',
+        modePredict: '预测下一句',
+        modeNext: '推荐下一步',
+        modeHybrid: '混合（先预测，必要时推荐）',
+        modeHelp: '预测模式模仿你自己的说法；推荐模式按任务进度给出有依据的下一步；混合模式先判断意图，两者都不确定时保持静默。',
+        taskAwareness: '任务感知',
+        taskAwarenessHelp: '从最近回合与回合状态里提取任务阶段（探索 / 规划 / 执行 / 受阻 / 复查 / 完成）。任务已完成且没有明确后续目标时，插件保持静默。',
+        contextLevel: '上下文范围',
+        contextRecent: '最近回合',
+        contextTask: '当前任务摘要',
+        contextExtended: '扩展上下文',
+        contextHelp: '任务摘要只在内存里保留，按下面的时长过期；扩展上下文会带上更多历史用户指令，Token 消耗更高。',
+        taskMemory: '任务摘要保留时长（分钟）',
+        taskMemoryHelp: '0 表示不留存任务摘要，只用最近回合；范围 0–120 分钟。',
+        draftCompletion: '草稿续写（预留）',
+        draftCompletionHelp: '预留给下一阶段的输入中补全。当前版本打开也不会改变建议行为：草稿非空时仍然不显示建议。',
+        localPolicy: '本地路由策略',
+        localPolicyGateway: '本地网关（请求只发本机，网关可能继续转发）',
+        localPolicyStrict: '严格本地推理（只信任指定的供应商与模型）',
+        localPolicyHelp: '网关模式只保证请求发到本机地址，网关之后是否继续外发由网关决定。严格模式按供应商 id 与模型 id 精确匹配，路由不匹配时直接放弃生成。',
+        trustedProvider: '可信本地供应商',
+        trustedModel: '可信本地模型',
+        trustedHelp: '按供应商 id 与模型 id 精确匹配。严格模式下留空表示不生成建议。',
+        feedbackTitle: '建议反馈',
+        feedbackHelp: '只统计本机事件：展示、显式采纳、实际发送、采纳后修改、关闭、重随。发送与修改由宿主在你发出消息后比对。',
+        feedbackShown: '展示',
+        feedbackAccepted: '采纳',
+        feedbackSent: '发送',
+        feedbackEdited: '修改',
+        feedbackDismissed: '关闭',
+        feedbackRegenerated: '重随',
+        feedbackAcceptRate: '采纳率',
+        feedbackSendRate: '采纳后发送率',
+        feedbackEditRatio: '平均改动比例',
+        feedbackDuplicateRate: '重复建议率',
+        feedbackResponse: '平均响应',
+        feedbackTokensPerSent: '每条已发送建议的 token',
+        feedbackEmpty: '还没有反馈数据。',
+        limited: '自动建议已达上限，稍后再试或手动重随',
+        skipped: '这一轮不需要建议',
       },
       en: {
         nav: 'Input suggestions',
@@ -133,6 +186,7 @@ window.__ModuleLoader__.load({
         catalogFailed: 'Could not read the model catalog. Try Refresh.',
         refresh: 'Refresh models',
         regenerate: 'Reroll',
+        refine: 'Refine prompt',
         summon: 'Generate suggestion',
         accept: 'Accept suggestion',
         generating: 'Generating',
@@ -146,7 +200,7 @@ window.__ModuleLoader__.load({
         detailDetailed: 'Detailed (names the target)',
         detailHelp: 'Controls length and specificity; the smaller of this and the character cap wins.',
         templateTitle: 'Prompt template (advanced)',
-        templateHelp: 'Placeholders: {{instructions}} {{style}} {{memory}} {{examples}} {{language}} {{detail}} {{maxChars}}. Empty uses the built-in template; dropping {{instructions}} re-adds the built-in constraints.',
+        templateHelp: 'Placeholders: {{instructions}} {{style}} {{format}} {{memory}} {{examples}} {{language}} {{detail}} {{maxChars}} {{task}} {{extended}} {{mode}}. Empty uses the built-in template; dropping {{instructions}} re-adds the built-in constraints.',
         templatePlaceholder: 'Empty = built-in template',
         templateMemory: 'Inject the local profile',
         templateExamples: 'Inject recently accepted suggestions',
@@ -165,6 +219,58 @@ window.__ModuleLoader__.load({
         usageAvg: 'Average per call',
         usageFailedCalls: 'Failed / no suggestion',
         usageFailed: 'Could not read usage',
+        strategyTitle: 'Suggestion strategy',
+        formatTitle: 'Output format',
+        formatHelp: 'Independent of the style preset; decides only the shape of the suggestion. Structured / steps / research formats are multiline; the rest are single-line.',
+        formatSingle: 'Single line (default)',
+        formatConcise: 'Concise',
+        formatStructured: 'Structured (goal / steps / acceptance)',
+        formatSteps: 'Steps',
+        formatResearch: 'Research (question / hypothesis / analysis / conclusion)',
+        formatCustom: 'Custom structure',
+        formatTemplateLabel: 'Custom structure description',
+        formatTemplateHelp: 'Used only when Output format is Custom: tell the model how to organize each line.',
+        formatTemplatePlaceholder: 'e.g. line 1 the goal; line 2 two steps separated by semicolons; line 3 the acceptance criterion.',
+        mode: 'Suggestion mode',
+        modePredict: 'Predict the next line',
+        modeNext: 'Recommend the next action',
+        modeHybrid: 'Hybrid (predict first, recommend when useful)',
+        modeHelp: 'Predict imitates how you phrase things. Recommend proposes the next step from task progress. Hybrid judges your intent first and stays silent when neither is clear.',
+        taskAwareness: 'Task awareness',
+        taskAwarenessHelp: 'Reads the task stage (exploring, planning, executing, blocked, reviewing, completed) from recent turns. Once the task is done with no clear follow-up, the plugin stays silent.',
+        contextLevel: 'Context level',
+        contextRecent: 'Recent turn',
+        contextTask: 'Task summary',
+        contextExtended: 'Extended context',
+        contextHelp: 'The task summary is kept in memory and expires after the window below. Extended context adds more of your earlier instructions and costs more tokens.',
+        taskMemory: 'Task summary lifetime (minutes)',
+        taskMemoryHelp: '0 keeps no task summary and uses the recent turn only. Range 0-120 minutes.',
+        draftCompletion: 'Draft completion (reserved)',
+        draftCompletionHelp: 'Reserved for in-draft completion in a later stage. Turning it on now changes nothing: suggestions still hide while the draft has text.',
+        localPolicy: 'Local route policy',
+        localPolicyGateway: 'Loopback gateway (local address, may forward)',
+        localPolicyStrict: 'Strict local inference (trusted route only)',
+        localPolicyHelp: 'Gateway mode only guarantees the request reaches a loopback address. Strict mode matches provider and model ids exactly and refuses to generate when the route differs.',
+        trustedProvider: 'Trusted local provider',
+        trustedModel: 'Trusted local model',
+        trustedHelp: 'Exact provider and model ids. Empty in strict mode means no suggestions are generated.',
+        feedbackTitle: 'Suggestion feedback',
+        feedbackHelp: 'Counts stay on this machine: shown, accepted, sent, edited after accept, dismissed, regenerated. The host compares your real message after you send it.',
+        feedbackShown: 'Shown',
+        feedbackAccepted: 'Accepted',
+        feedbackSent: 'Sent',
+        feedbackEdited: 'Edited',
+        feedbackDismissed: 'Dismissed',
+        feedbackRegenerated: 'Regenerated',
+        feedbackAcceptRate: 'Accept rate',
+        feedbackSendRate: 'Send rate after accept',
+        feedbackEditRatio: 'Average edit ratio',
+        feedbackDuplicateRate: 'Duplicate rate',
+        feedbackResponse: 'Average response',
+        feedbackTokensPerSent: 'Tokens per sent suggestion',
+        feedbackEmpty: 'No feedback recorded yet.',
+        limited: 'Automatic suggestions are capped for now; retry later or reroll',
+        skipped: 'No suggestion needed this turn',
       },
     }
 
@@ -275,15 +381,35 @@ window.__ModuleLoader__.load({
       console.warn(message)
     }
 
-    /** 校验一条建议的形状。 */
+    /** 校验一条建议的形状。id 允许缺省（旧宿主），缺失时由文本派生。 */
     function isSuggestion(value) {
       if (value === null || typeof value !== 'object') return false
+      if (value.id !== undefined && (typeof value.id !== 'string' || value.id === '')) return false
       return typeof value.text === 'string' && value.text.trim() !== ''
         && Number.isSafeInteger(value.turn) && value.turn >= 0
         && typeof value.truncated === 'boolean'
     }
 
-    /** 读宿主存好的建议；任何失败都回答 null。 */
+    /** 建议的稳定标识：宿主给的 id 优先，旧宿主没有 id 时按回合 + 文本派生。 */
+    function suggestionIdentity(suggestion) {
+      if (suggestion === null || suggestion === undefined) return ''
+      if (typeof suggestion.id === 'string' && suggestion.id !== '') return suggestion.id
+      var text = str(suggestion.text)
+      var hash = 2166136261
+      for (var index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index)
+        hash = Math.imul(hash, 16777619) >>> 0
+      }
+      return 't' + String(suggestion.turn) + '-' + hash.toString(36)
+    }
+
+    /**
+     * 读宿主存好的建议。
+     *
+     * 返回 null 表示「宿主明确说没有建议」，undefined 表示读取失败。两者必须
+     * 分开：早先失败也返回 null，于是一次本机请求抖动就把正在显示的幽灵文字
+     * 抹掉了。
+     */
     async function fetchSuggestion(sessionId, signal) {
       try {
         var response = await fetch(GET_PATH, {
@@ -293,47 +419,160 @@ window.__ModuleLoader__.load({
           signal: signal,
           cache: 'no-store'
         })
-        if (response.ok !== true) return null
+        if (response.ok !== true) return undefined
         var body = await response.json()
-        if (body === null || typeof body !== 'object' || !('suggestion' in body)) return null
+        if (body === null || typeof body !== 'object' || !('suggestion' in body)) return undefined
         return isSuggestion(body.suggestion) ? body.suggestion : null
       } catch (error) {
         warnOnce('input-suggest: read failed (' + String(error) + ')')
-        return null
+        return undefined
       }
     }
 
     /**
-     * 把「用户实际发出的文本」报给宿主做隐式学习。
-     * 静默失败：学习永远不该干扰发消息。
+     * 事件式反馈的全部取值。宿主按事件学习，草稿正文永远不上报。
+     *
+     * `submitted` 只带一个不透明的提交 id：宿主用它把这次发送与真实的
+     * user/message（`source.rpcId`）对上，具体文本由宿主从会话里取。
      */
-    async function reportFeedback(sessionId, text, rejected) {
+    var FEEDBACK_EVENTS = ['shown', 'accepted', 'dismissed', 'submitted']
+
+    /**
+     * 可选事件：采纳之后又清空草稿（放弃），或采纳后改成别的内容。
+     * 宿主的可信来源是真实用户消息，这两个只作辅助信号。
+     */
+    var EXTRA_FEEDBACK_EVENTS = ['abandoned', 'edited']
+
+    /**
+     * 宿主是否认得事件式反馈。
+     *
+     * 判据读 `/usage` 里的 `feedback` 段：新版宿主总会带上它（分母为零时比率
+     * 为 null）。旧宿主只认 `{ text, rejected }`，把一条没有正文的事件当成
+     * 「建议被拒」写进画像 —— 那会污染学习，所以不支持时整条事件丢弃。
+     */
+    var feedbackCapability = null
+    var feedbackProbeAt = 0
+    var feedbackChain = Promise.resolve()
+    var FEEDBACK_TIMEOUT_MS = 5000
+    var FEEDBACK_PROBE_INTERVAL_MS = 30000
+
+    /** 带超时的 POST：反馈是尽力而为，不能让队列卡在一次挂起的请求上。 */
+    async function postJson(path, payload, options) {
+      var init = {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store'
+      }
+      var timer = null
+      if (typeof AbortController === 'function') {
+        var controller = new AbortController()
+        init.signal = controller.signal
+        timer = setTimeout(function () { controller.abort() }, FEEDBACK_TIMEOUT_MS)
+      }
+      if (options !== null && options !== undefined && options.keepalive === true) init.keepalive = true
       try {
-        await fetch(FEEDBACK_PATH, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sessionId: sessionId, text: text, rejected: rejected === true }),
-          cache: 'no-store',
-        })
-      } catch {
-        // 学习是尽力而为。
+        return await fetch(path, init)
+      } finally {
+        if (timer !== null) clearTimeout(timer)
       }
     }
 
-    /** 显式请求一次重新生成。 */
-    async function requestGeneration(sessionId, signal) {
+    async function hasEventFeedback() {
+      if (feedbackCapability === true) return true
+      // 探测失败不能变成每次事件都多打一次请求。
+      if (feedbackProbeAt !== 0 && Date.now() - feedbackProbeAt < FEEDBACK_PROBE_INTERVAL_MS) {
+        return feedbackCapability === true
+      }
+      feedbackProbeAt = Date.now()
+      try {
+        var response = await postJson(USAGE_PATH, {})
+        if (response.ok !== true) return false
+        var body = await response.json()
+        // 当前宿主把反馈统计放在响应的顶层（`/usage` -> { usage, feedback }），
+        // 早期草案放在 usage 里面。两处都认，便于前后端独立升级。
+        if (body === null || typeof body !== 'object') return false
+        var block = body.feedback !== null && typeof body.feedback === 'object'
+          ? body.feedback
+          : body.usage !== null && typeof body.usage === 'object'
+            ? body.usage.feedback
+            : null
+        if (block === null || typeof block !== 'object') return false
+        feedbackCapability = true
+        return true
+      } catch {
+        // 读失败不能下结论，隔一会儿再试。
+        return false
+      }
+    }
+
+    /** 让下一次反馈重新探测宿主能力（插件热重载与自检用）。 */
+    function resetFeedbackCapability() {
+      feedbackCapability = null
+      feedbackProbeAt = 0
+      feedbackChain = Promise.resolve()
+    }
+
+    /**
+     * 上报一个反馈事件，按调用顺序串行发送。
+     *
+     * 采纳必须在写入草稿的同一个事件里上报，不能等「草稿非空」或「用户发消息」
+     * 再推断：那既会把用户自己打的字误判为采纳，也会漏掉真正采纳后又改写的样本。
+     *
+     * @param {string} sessionId - 会话 id。
+     * @param {string} identity - 建议标识。
+     * @param {string} event - 事件名。
+     */
+    function reportFeedbackEvent(sessionId, identity, event, requestId) {
+      if (typeof sessionId !== 'string' || sessionId === '') return Promise.resolve(false)
+      if (FEEDBACK_EVENTS.indexOf(event) < 0 && EXTRA_FEEDBACK_EVENTS.indexOf(event) < 0) return Promise.resolve(false)
+      var payload = { sessionId: sessionId, suggestionId: identity, event: event }
+      if (typeof requestId === 'string' && requestId !== '') payload.requestId = requestId
+      feedbackChain = feedbackChain.then(async function () {
+        if ((await hasEventFeedback()) !== true) return false
+        try {
+          await postJson(FEEDBACK_PATH, payload, { keepalive: true })
+          return true
+        } catch {
+          // 学习是尽力而为。
+          return false
+        }
+      }).catch(function () { return false })
+      return feedbackChain
+    }
+
+    /**
+     * 显式请求一次生成。
+     *
+     * @param {string} sessionId - 会话 id。
+     * @param {AbortSignal|undefined} signal - 取消信号。
+     * @param {object} options - `{ trigger: 'manual'|'idle', suggestionId }`。
+     *   手动触发缺省，兼容旧调用；重随把当前显示的建议 id 一并送上，宿主据此
+     *   记录「这一条被换掉」。
+     */
+    async function requestGeneration(sessionId, signal, options) {
+      var settings = options !== null && options !== undefined ? options : {}
+      var trigger = settings.trigger === 'idle' ? 'idle' : 'manual'
+      var payload = { sessionId: sessionId, trigger: trigger }
+      if (typeof settings.suggestionId === 'string' && settings.suggestionId !== '') {
+        payload.suggestionId = settings.suggestionId
+      }
+      if (typeof settings.draft === 'string' && settings.draft.trim() !== '') {
+        payload.draft = settings.draft
+      }
       try {
         var response = await fetch(GENERATE_PATH, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sessionId: sessionId }),
+          body: JSON.stringify(payload),
           signal: signal,
           cache: 'no-store'
         })
         var body = await response.json()
         if (body === null || typeof body !== 'object' || !('status' in body)) return { status: 'error', suggestion: null }
         if (body.status === 'generated' && isSuggestion(body.suggestion)) return { status: 'generated', suggestion: body.suggestion }
-        if (body.status === 'empty' || body.status === 'no-context' || body.status === 'busy') return { status: body.status, suggestion: null }
+        var known = ['empty', 'no-context', 'busy', 'limited', 'skipped']
+        if (known.indexOf(body.status) >= 0) return { status: body.status, suggestion: null }
         return { status: 'error', suggestion: null }
       } catch (error) {
         return { status: 'error', suggestion: null }
@@ -342,7 +581,8 @@ window.__ModuleLoader__.load({
 
     /** 两条建议是否等价。 */
     function sameSuggestion(left, right) {
-      if (left === null || right === null) return left === right
+      if (left === null || left === undefined || right === null || right === undefined) return left === right
+      if (suggestionIdentity(left) !== suggestionIdentity(right)) return false
       return left.turn === right.turn
         && left.text === right.text
         && left.truncated === right.truncated
@@ -371,14 +611,40 @@ window.__ModuleLoader__.load({
         listeners: [],
         pending: false,
         timer: undefined,
-        controller: new AbortController()
+        controller: new AbortController(),
+        /** 本地已采纳 / 已关闭的建议标识：轮询回来也保持隐藏。 */
+        muted: {},
+        /** 本地静音一条建议：两个视图会同时看到它消失。 */
+        mute: function (identity) {
+          if (typeof identity !== 'string' || identity === '') return
+          if (Object.keys(source.muted).length > 200) source.muted = {}
+          source.muted[identity] = true
+          if (source.value !== null && suggestionIdentity(source.value) === identity) {
+            rememberSuggestion(source, source.sessionId, null)
+          }
+        },
+        /** 生成序号：只有最新一次请求的结果允许写回。 */
+        epoch: 0,
+        /**
+         * 本地写入序号。每次本地写入（记住建议、静音、生成落地）都自增；
+         * 轮询请求发出时记下它，回来时对不上就丢弃 —— 旧 GET 不能覆盖
+         * 更新的生成结果。
+         */
+        writeSeq: 0,
+        /** 在途的生成请求控制权，用于 latest-wins 取消。 */
+        generating: null
       }
       sources.set(sessionId, source)
       var read = function () {
         if (source.pending) return
         source.pending = true
+        // 请求开始时记下写入序号：回来时若本地已经写过，这一份就是旧的。
+        var seq = source.writeSeq
         void fetchSuggestion(sessionId, source.controller.signal).then(function (next) {
           source.pending = false
+          // 读失败（undefined）保留当前建议：本机请求抖一下不该让幽灵文字闪掉。
+          if (next === undefined) return
+          if (source.writeSeq !== seq) return
           if (source.value !== null && sameSuggestion(source.value, next)) return
           source.value = next
           publishSource(source)
@@ -395,7 +661,31 @@ window.__ModuleLoader__.load({
       if (source.listeners.length > 0) return
       if (sources.get(source.sessionId) === source) sources.delete(source.sessionId)
       clearInterval(source.timer)
+      if (source.generating !== null) source.generating.abort()
+      source.generating = null
       source.controller.abort()
+    }
+
+    /**
+     * 把一条建议写进共享源并广播。
+     *
+     * 这是「本地写入」的唯一入口：它自增写入序号，让已经发出的 GET 回来时
+     * 自动作废。会话已切换或源已释放时丢弃迟到的结果，避免写进别人的输入框；
+     * 本地已采纳 / 已关闭的那条也不重新显示。
+     *
+     * @param {object} source - 建议源。
+     * @param {string} sessionId - 会话 id。
+     * @param {object|null} next - 新建议。
+     */
+    function rememberSuggestion(source, sessionId, next) {
+      if (source === null || source === undefined) return
+      if (sources.get(sessionId) !== source) return
+      if (next !== null && next !== undefined && source.muted[suggestionIdentity(next)] === true) return
+      // 写入后必须广播：输入框与工具栏是两个独立订阅者，只更新调用者自己的
+      // state 会让另一方停在旧建议上（表现为「点重随没变化」）。
+      source.value = next
+      source.writeSeq += 1
+      publishSource(source)
     }
 
     function useSuggestionSource(sessionId) {
@@ -424,6 +714,10 @@ window.__ModuleLoader__.load({
       }, [sessionId])
 
       var suggestion = source === null || source.sessionId !== sessionId ? null : source.value
+      // 本地已静音（采纳 / 关闭）的建议不再显示，等宿主换下一条。
+      if (suggestion !== null && suggestion !== undefined && source.muted[suggestionIdentity(suggestion)] === true) {
+        suggestion = null
+      }
       return {
         suggestion: suggestion,
         refresh: function () {
@@ -431,11 +725,31 @@ window.__ModuleLoader__.load({
           setVersion(function (count) { return count + 1 })
         },
         remember: function (next) {
+          rememberSuggestion(source, sessionId, next)
+        },
+        /** 本地静音一条建议，立刻从两个视图里消失。 */
+        mute: function (identity) {
           if (source === null) return
-          // 写入共享值后必须广播：输入框与工具栏是两个独立订阅者，只更新
-          // 调用者自己的 state 会让另一方停在旧建议上（表现为「点重随没变化」）。
-          source.value = next
-          publishSource(source)
+          source.mute(identity)
+        },
+        /** 申请一次生成：latest-wins，返回 null 表示被更新的请求取代或无法发起。 */
+        beginGeneration: function () {
+          if (source === null || typeof AbortController !== 'function') return null
+          if (source.generating !== null) source.generating.abort()
+          var controller = new AbortController()
+          var epoch = source.epoch + 1
+          source.epoch = epoch
+          source.generating = controller
+          return {
+            signal: controller.signal,
+            owns: function () {
+              return source.epoch === epoch && source.generating === controller
+            },
+            settle: function () {
+              if (source.generating === controller) source.generating = null
+            },
+            abort: function () { controller.abort() }
+          }
         }
       }
     }
@@ -451,7 +765,7 @@ window.__ModuleLoader__.load({
      * 冷却与去重：
      *   - 每会话 IDLE_COOLDOWN_MS 内最多一次主动请求；
      *   - 已经显示建议时不请求；
-     *   - 宿主回答 busy / no-context 时安静退让，不重试也不弹提示。
+     *   - 宿主回答 busy / no-context / limited / skipped 时安静退让，不重试也不弹提示。
      * @param {string} sessionId - 会话 id。
      * @param {object} options - `{ idle: boolean, hasSuggestion: boolean }`。
      * @returns {object|null} 新建议，或 null。
@@ -464,19 +778,357 @@ window.__ModuleLoader__.load({
       if (typeof sessionId !== 'string' || sessionId === '') return Promise.resolve(null)
       if (options.idle !== true) return Promise.resolve(null)
       if (options.hasSuggestion === true) return Promise.resolve(null)
+      if (typeof AbortController !== 'function') return Promise.resolve(null)
       var now = Date.now()
       var last = idleRequests.get(sessionId)
       if (typeof last === 'number' && now - last < IDLE_COOLDOWN_MS) return Promise.resolve(null)
-      if (typeof AbortController !== 'function') return Promise.resolve(null)
       idleRequests.set(sessionId, now)
       var controller = new AbortController()
       var timer = setTimeout(function () { controller.abort() }, REQUEST_TIMEOUT_MS)
-      return requestGeneration(sessionId, controller.signal)
+      return requestGeneration(sessionId, controller.signal, { trigger: 'idle' })
         .then(function (response) {
+          if (response.status === 'limited' || response.status === 'skipped') return null
           return response.status === 'generated' ? response.suggestion : null
         })
         .catch(function () { return null })
         .finally(function () { clearTimeout(timer) })
+    }
+
+
+    /**
+     * 采纳与显示的单一记录处。
+     *
+     * 两个视图（输入框幽灵文字、工具栏按钮）都会挂载一次，采纳、关闭、shown
+     * 必须只算一次。所有事件按 (会话, 建议 id, 事件) 去重后再发。
+     */
+    var reported = new Map()
+    var accepted = new Map()
+    var acceptViews = new Map()
+    var ACCEPTED_TTL_MS = 180000
+    var SEND_GRACE_MS = 700
+
+    function reportOnce(sessionId, identity, event, requestId) {
+      var key = sessionId + '\u0000' + identity + '\u0000' + event
+        + (typeof requestId === 'string' && requestId !== '' ? '\u0000' + requestId : '')
+      if (reported.get(key) === true) return Promise.resolve(false)
+      if (reported.size > 400) reported.clear()
+      reported.set(key, true)
+      return reportFeedbackEvent(sessionId, identity, event, requestId)
+    }
+
+    /**
+     * 把建议写进草稿。
+     *
+     * 宿主提供 `captureInsertion()` + `insertText(text, span)`：span 带着草稿修订
+     * 号，插入是一次 CAS。这里额外比对一次「我们渲染时的修订号」：
+     *
+     *   - 用户在两次渲染之间敲了字，编辑器修订号已经前进，而回调里拿到的
+     *     快照还是旧的；
+     *   - 只靠 insertText 的 CAS，捕获到的 span 已经是新修订，插入会成功，
+     *     结果是在用户刚打的字前面又塞进一句建议。
+     *
+     * 所以两道闸都要过：span 与渲染快照一致，插入本身再 CAS 一次。任一失败
+     * 就放弃，绝不整段覆盖草稿。宿主没有这两个方法（旧版本或测试桩）时退回
+     * `setDraft`，此时没有修订号可校验。
+     */
+    function insertSuggestionText(inputActions, text, expectedRev) {
+      if (inputActions === null || inputActions === undefined) return false
+      if (typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function') {
+        var span
+        try {
+          span = inputActions.captureInsertion()
+        } catch {
+          return false
+        }
+        if (span === null || span === undefined) return false
+        var rendered = typeof expectedRev === 'number' && Number.isFinite(expectedRev) ? expectedRev : undefined
+        if (rendered !== undefined && typeof span.draftRev === 'number' && span.draftRev !== rendered) return false
+        try {
+          return inputActions.insertText(text, span) === true
+        } catch {
+          return false
+        }
+      }
+      if (typeof inputActions.setDraft === 'function') {
+        inputActions.setDraft(text)
+        return true
+      }
+      return false
+    }
+
+    /**
+     * 按键是否真的来自输入框。
+     *
+     * 键盘监听挂在 window 上，其他面板（设置页、侧栏）里的 Tab 不能触发采纳。
+     * 先看事件目标是否落在输入框容器里，再看焦点；任一成立即认为在输入框内。
+     * 远程浏览器与旧宿主的 DOM 标记可能不同，两种情况都认。
+     */
+    function isComposerEvent(event) {
+      var target = event === null || event === undefined ? null : event.target
+      if (target !== null && target !== undefined && typeof target.closest === 'function') {
+        if (target.closest('[data-input-scroll]') !== null) return true
+        if (target.closest('[data-composer-card]') !== null) return true
+      }
+      return isComposerFocused()
+    }
+
+    /**
+     * 采纳一条建议：先上报 accepted，再写草稿，最后本地静音。
+     *
+     * 上报必须发生在真实按键 / 点击的同一个事件里：宿主用真实用户消息推断
+     * 发送与改写，客户端只提供「这一条被显式采纳」的事实。
+     *
+     * @param {string} sessionId - 会话 id。
+     * @param {object} source - 建议源。
+     * @param {object} suggestion - 当前建议。
+     * @param {object} inputActions - 宿主的输入动作。
+     * @returns {boolean} 是否写入成功。
+     */
+    function acceptSuggestion(sessionId, source, suggestion, inputActions, expectedRev) {
+      if (suggestion === null || suggestion === undefined) return false
+      // 先写入草稿：任何一步 CAS 失败都表示草稿已经不是我们看到的那份。
+      // 写不进去就不是采纳，不能上报。
+      if (insertSuggestionText(inputActions, suggestion.text, expectedRev) !== true) return false
+      var identity = suggestionIdentity(suggestion)
+      void reportOnce(sessionId, identity, 'accepted')
+      accepted.set(sessionId, {
+        identity: identity,
+        text: str(suggestion.text),
+        at: Date.now(),
+        seenNonEmpty: false,
+        edited: false,
+        clearedAt: 0,
+        acceptedNormalized: normalizeDraftText(suggestion.text),
+        lastNormalized: normalizeDraftText(suggestion.text),
+        clearNormalized: '',
+        pendingAtAccept: snapshotPending(acceptViews.get(sessionId)),
+        timer: undefined
+      })
+      if (source !== null && source !== undefined && typeof source.mute === 'function') source.mute(identity)
+      return true
+    }
+
+    /** 明确关闭一条建议：上报 dismissed 并本地静音。 */
+    function dismissSuggestion(sessionId, source, suggestion) {
+      if (suggestion === null || suggestion === undefined) return false
+      var identity = suggestionIdentity(suggestion)
+      void reportOnce(sessionId, identity, 'dismissed')
+      if (source !== null && source !== undefined && typeof source.mute === 'function') source.mute(identity)
+      return true
+    }
+
+    /**
+     * 本地归一化：只作比较证明，不离开浏览器。
+     *
+     * 大小写、行内空白、空行、行末标点都是噪声；换行结构保留。它与宿主算
+     * 改写比例用的归一化口径一致，所以「只改了空格」不会被当成重敲。
+     */
+    function normalizeDraftText(text) {
+      var lines = String(text === null || text === undefined ? '' : text).replace(/\r\n?/g, '\n').split('\n')
+      var kept = []
+      for (var index = 0; index < lines.length; index += 1) {
+        var line = lines[index].replace(/[ \t\u3000]+/g, ' ').replace(/[ \t]*[.!?;:\u3002\uFF01\uFF1F\uFF1B\uFF1A]+[ \t]*$/, '').trim()
+        if (line !== '') kept.push(line)
+      }
+      return kept.join('\n').toLowerCase()
+    }
+
+    /**
+     * 采纳时已经存在的在途发送，用来区分「原本就在发」与「采纳后新发的」。
+     *
+     * 用显式的 `present` 标记「有没有拿到视图快照」：视图还没渲染过时
+     * present 为 false，此刻队列里的任何一条都可能是本来就有的发送，
+     * 不能当作「采纳之后新出现的」。
+     *
+     * @param {object} view - 视图快照，可能不存在。
+     * @returns {{present: boolean, ids: object}} 基线。
+     */
+    function snapshotPending(view) {
+      var ids = {}
+      if (view === null || view === undefined) return { present: false, ids: ids }
+      var list = Array.isArray(view.pendingSubmissions) ? view.pendingSubmissions : []
+      for (var index = 0; index < list.length; index += 1) {
+        var requestId = list[index] === null || list[index] === undefined ? undefined : list[index].requestId
+        if (requestId !== undefined) ids[String(requestId)] = true
+      }
+      return { present: true, ids: ids }
+    }
+
+    /** 采纳之后新出现在提交队列里的发送。 */
+    function newSendsSince(record, pending) {
+      var list = Array.isArray(pending) ? pending : []
+      var baseline = record.pendingAtAccept
+      // 采纳时没拿到视图快照（组件尚未渲染）：此刻队列里的一切都可能是
+      // 「本来就有的」。宁可不归因，也不把上一轮的发送算到这一条建议头上。
+      if (baseline === null || baseline === undefined || baseline.present !== true) return []
+      var fresh = []
+      for (var index = 0; index < list.length; index += 1) {
+        var requestId = list[index] === null || list[index] === undefined ? undefined : list[index].requestId
+        if (baseline.ids[String(requestId)] !== true) fresh.push(list[index])
+      }
+      return fresh
+    }
+
+    /**
+     * 从新出现的发送里认出属于这条采纳的那一次。
+     *
+     * 归因必须是精确的：提交文本要么等于被采纳的那一行，要么等于发送前
+     * 最后一次看到的草稿。两者都不匹配就不上报 —— 那可能来自队列、子代理
+     * 或用户自己直接键入的别的内容，按「只有一条就当它」去猜会把无关发送
+     * 也算成这条建议的采纳。
+     *
+     * 两条以上同时出现时，只在文本完全对上时认定（原样发出的那一条），
+     * 不做任何按顺序或按数量的猜测。
+     *
+     * @param {object} record - 采纳跟踪。
+     * @param {Array} fresh - 新出现的发送。
+     * @returns {object|null} `{ requestId, rewritten }` 或 null。
+     */
+    function claimSubmission(record, fresh) {
+      var candidates = []
+      for (var index = 0; index < fresh.length; index += 1) {
+        var entry = fresh[index]
+        var requestId = entry === null || entry === undefined ? undefined : entry.requestId
+        if (typeof requestId !== 'string' || requestId === '') continue
+        candidates.push({ requestId: requestId, text: normalizeDraftText(entry.text) })
+      }
+      if (candidates.length === 0) return null
+      var accepted = record.acceptedNormalized
+      for (var exact = 0; exact < candidates.length; exact += 1) {
+        if (accepted !== '' && candidates[exact].text === accepted) {
+          return { requestId: candidates[exact].requestId, rewritten: false }
+        }
+      }
+      var seen = record.lastNormalized
+      for (var edited = 0; edited < candidates.length; edited += 1) {
+        if (seen !== '' && candidates[edited].text === seen) {
+          return { requestId: candidates[edited].requestId, rewritten: seen !== accepted }
+        }
+      }
+      // 没有一条与采纳行或发送前草稿吻合：这不是这次采纳的发送。
+      return null
+    }
+
+    /**
+     * 采纳之后的状态跟踪。
+     *
+     * 采纳后草稿被清空有两种原因：用户发出去了，或用户放弃并删掉。原生发送
+     * 在 plain 阶段就是乐观的 —— 先登记 pendingSubmissions，再清草稿 —— 所以
+     * 判据是「采纳之后有没有新发送」，与草稿此刻是否为空无关。
+     *
+     * 放弃的判据要求三件事同时成立：草稿在采纳后被清空过、宽限期内没有新
+     * 发送、也没有重新敲字。任何一次新发送都把判断交给宿主 —— 宿主的真实
+     * 用户消息才是发送与改写的权威来源。
+     *
+     * 「清空前那一版草稿」只在本机做归一化比对，用来证明清空的对象就是
+     * 这条被采纳 / 改写的行。草稿正文永远不上报。
+     *
+     * @param {string} sessionId - 会话 id。
+     * @param {object} view - `{ draft, phase, pendingSubmissions, running, awaitingFirstTurn }`。
+     */
+    function observeAcceptance(sessionId, view) {
+      var record = accepted.get(sessionId)
+      if (record === undefined) return
+      if (Date.now() - record.at > ACCEPTED_TTL_MS) {
+        cancelAcceptance(sessionId)
+        return
+      }
+      var normalized = normalizeDraftText(view.draft)
+      var newSends = newSendsSince(record, view.pendingSubmissions)
+      if (newSends.length > 0) {
+        // 采纳之后出现了新的发送：把不透明的提交 id 交给宿主，由它用真实
+        // user/message 的 source.rpcId 对上。草稿正文仍然留在浏览器里。
+        var send = claimSubmission(record, newSends)
+        if (send !== null) {
+          void reportOnce(sessionId, record.identity, 'submitted', send.requestId)
+          // 发送前那一版草稿已经被改写过：给宿主一个明确的「有过编辑」信号。
+          // 具体改了多少仍由宿主按真实提交的文本计算。
+          if (record.edited !== true && send.rewritten === true) {
+            void reportOnce(sessionId, record.identity, 'edited')
+          }
+        }
+        cancelAcceptance(sessionId)
+        return
+      }
+      if (normalized === '') {
+        // 草稿还没见过非空渲染就不算「采纳过又清掉」，可能是渲染还没跟上。
+        if (record.seenNonEmpty !== true) return
+        // 提交进行中清空草稿是发送的必经步骤。
+        if (view.phase !== undefined && view.phase !== 'plain') {
+          record.sawSubmit = true
+          return
+        }
+        if (record.clearedAt !== 0) return
+        record.clearedAt = Date.now()
+        record.clearNormalized = record.lastNormalized
+        armAcceptanceTimer(sessionId, record)
+        return
+      }
+      if (view.phase !== undefined && view.phase !== 'plain') record.sawSubmit = true
+      if (record.clearedAt !== 0) {
+        // 宽限期内重新敲字：清空不是最终状态。
+        cancelAcceptanceTimer(record)
+        record.clearedAt = 0
+        // 敲回的是另一行、且没有任何发送回显：这条采纳已经被放弃重写。
+        // 本地立刻撤销跟踪并报 abandoned，宿主的第二个宽限期就不必再等。
+        if (record.clearNormalized !== '' && normalized !== record.clearNormalized) {
+          void reportOnce(sessionId, record.identity, 'abandoned')
+          accepted.delete(sessionId)
+          return
+        }
+        record.clearNormalized = ''
+      }
+      record.seenNonEmpty = true
+      record.lastNormalized = normalized
+      // 只在用户把建议改写成别的内容时补一个 edited 事件；改动幅度由宿主按
+      // 真实发送文本计算，这里只要一个「确实改过」的明确信号。
+      if (record.edited !== true && isRewritten(normalized, record.acceptedNormalized)) {
+        record.edited = true
+        void reportOnce(sessionId, record.identity, 'edited')
+      }
+    }
+
+    function armAcceptanceTimer(sessionId, record) {
+      cancelAcceptanceTimer(record)
+      record.timer = setTimeout(function () { settleAcceptance(sessionId, record) }, SEND_GRACE_MS)
+      if (typeof record.timer?.unref === 'function') record.timer.unref()
+    }
+
+    /** 草稿是否已经抛开了采纳的文字（两边都不再互相包含）。 */
+    function isRewritten(draftNormalized, acceptedNormalized) {
+      if (draftNormalized === '' || acceptedNormalized === '') return false
+      return draftNormalized.indexOf(acceptedNormalized) < 0 && acceptedNormalized.indexOf(draftNormalized) < 0
+    }
+
+    function cancelAcceptanceTimer(record) {
+      if (record.timer === undefined || record.timer === null) return
+      clearTimeout(record.timer)
+      record.timer = undefined
+    }
+
+    /** 撤销一条采纳跟踪（发送已发生或用户已重新编辑）。 */
+    function cancelAcceptance(sessionId) {
+      var record = accepted.get(sessionId)
+      if (record === undefined) return
+      cancelAcceptanceTimer(record)
+      accepted.delete(sessionId)
+    }
+
+    /** 宽限到期：仍然空着、且没有发送迹象，才当作放弃。 */
+    function settleAcceptance(sessionId, record) {
+      record.timer = undefined
+      if (accepted.get(sessionId) !== record) return
+      var view = acceptViews.get(sessionId)
+      accepted.delete(sessionId)
+      if (record.clearedAt === 0) return
+      if (view === undefined) return
+      if (typeof view.draft === 'string' && normalizeDraftText(view.draft) !== '') return
+      if (view.phase !== undefined && view.phase !== 'plain') return
+      // 期间进过提交态：那是命令或普通发送走过的路径，交给宿主判定。
+      if (record.sawSubmit === true) return
+      if (view.running === true || view.awaitingFirstTurn === true) return
+      if (newSendsSince(record, view.pendingSubmissions).length > 0) return
+      void reportOnce(sessionId, record.identity, 'abandoned')
     }
 
     var STYLE_TAG_ID = 'dsh-input-suggest-style'
@@ -525,6 +1177,66 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * 幽灵文字的实例登记。
+     *
+     * 输入框插槽可能在多个容器里各挂一份（主区与嵌入视图）。同一会话只允许
+     * 一份渲染幽灵文字，否则页面上会出现两条重影。规则是「最后挂载的那份
+     * 胜出」：会话切换后重建的输入框总是最新注册的那个。
+     * 标签页隐藏时不报 shown —— 用户看不到的东西不算曝光。
+     */
+    var ghostViews = new Map()
+    var ghostLatest = new Map()
+    var ghostOwnerSeq = 0
+
+    function ghostViewOf(sessionId) {
+      var existing = ghostViews.get(sessionId)
+      if (existing !== undefined) return existing
+      var created = { tokens: [], listeners: [] }
+      ghostViews.set(sessionId, created)
+      return created
+    }
+
+    /** 当前应该渲染幽灵文字的实例 token：最后挂载的那个。 */
+    function ghostOwner(sessionId) {
+      var latest = ghostLatest.get(sessionId)
+      return latest === undefined ? 0 : latest
+    }
+
+    function notifyGhostView(view) {
+      var listeners = view.listeners.slice()
+      for (var index = 0; index < listeners.length; index += 1) listeners[index]()
+    }
+
+    /** 认领 / 释放幽灵文字渲染权；返回释放函数。 */
+    function claimGhostView(sessionId, token, notify) {
+      var view = ghostViewOf(sessionId)
+      view.tokens.push(token)
+      view.listeners.push(notify)
+      // 后挂载的实例接管渲染权。
+      ghostLatest.set(sessionId, token)
+      notifyGhostView(view)
+      return function () {
+        var at = view.tokens.indexOf(token)
+        if (at >= 0) view.tokens.splice(at, 1)
+        var listenerAt = view.listeners.indexOf(notify)
+        if (listenerAt >= 0) view.listeners.splice(listenerAt, 1)
+        // 主人卸载时把渲染权交回仍然挂着的实例，避免视图切换后没有幽灵文字。
+        if (ghostLatest.get(sessionId) === token) {
+          if (view.tokens.length === 0) ghostLatest.delete(sessionId)
+          else ghostLatest.set(sessionId, view.tokens[view.tokens.length - 1])
+        }
+        if (view.tokens.length === 0 && ghostViews.get(sessionId) === view) ghostViews.delete(sessionId)
+        notifyGhostView(view)
+      }
+    }
+
+    /** 当前视图是否可见（remote 浏览器与旧宿主没有 visibilityState 时按可见处理）。 */
+    function viewVisible() {
+      if (typeof document === 'undefined' || document === null) return true
+      return document.visibilityState !== 'hidden'
+    }
+
+    /**
      * 输入框里的幽灵建议。
      * @param {object} props - 会话作用域标准 props。
      */
@@ -536,13 +1248,22 @@ window.__ModuleLoader__.load({
 
       var source = useSuggestionSource(sessionId)
       var running = useSession(function (state) { return state.running })
+      var pendingSubmissions = useSession(function (state) {
+        return state === null || state === undefined ? undefined : state.pendingSubmissions
+      })
+      var awaitingFirstTurn = useSession(function (state) {
+        return state === null || state === undefined ? undefined : state.awaitingFirstTurn
+      })
       var draft = useInput(function (state) { return state.draft })
       var phase = useInput(function (state) { return state.phase })
+      // 渲染时的编辑器修订号：采纳时拿它和实时修订号比对。
+      var draftRev = useInput(function (state) { return state.draftRev })
 
       var suggestion = source.suggestion
       var text = phase === undefined || phase === 'plain'
         ? currentSuggestion(suggestion, running, draft)
         : undefined
+      var identity = text === undefined ? '' : suggestionIdentity(suggestion)
 
       var acceptSpec = suggestion !== null && suggestion !== undefined && typeof suggestion.acceptKey === 'string'
         ? suggestion.acceptKey
@@ -551,20 +1272,70 @@ window.__ModuleLoader__.load({
 
       useGhostStyles()
 
-      // 采纳：只在输入框里、且正在显示建议时拦截；否则按键保持原生行为。
+      // 单实例：认领当前会话的渲染权，后挂载的胜出（用户眼前的那个才是真的）。
+      // 序号在渲染期分配，登记放在 effect 里：同一帧里两个实例都能拿到不同的
+      // token，但先渲染不等于先挂载，只有 effect 顺序能决定谁真正在屏幕上。
+      var tokenRef = react.useRef(0)
+      if (tokenRef.current === 0) {
+        ghostOwnerSeq += 1
+        tokenRef.current = ghostOwnerSeq
+        // 渲染期就登记：同一帧里后渲染的实例接管。effect 只负责监听与释放，
+        // 这样第一帧就有确定的归属，不会两份都先画一条再互相撤销。
+        if (sessionId !== undefined && sessionId !== null) ghostLatest.set(sessionId, tokenRef.current)
+      }
+      var ownerTick = react.useState(0)
+      var setOwnerTick = ownerTick[1]
       react.useEffect(function () {
-        if (text === undefined) return undefined
+        if (sessionId === undefined || sessionId === null) return undefined
+        ghostLatest.set(sessionId, tokenRef.current)
+        return claimGhostView(sessionId, tokenRef.current, function () {
+          setOwnerTick(function (count) { return count + 1 })
+        })
+      }, [sessionId])
+      var isOwner = sessionId !== undefined
+        && sessionId !== null
+        && ghostOwner(sessionId) === tokenRef.current
+
+      // 采纳必须来自真实按键：只在输入框里、且正在显示建议时拦截。
+      // Escape 是明确的关闭动作，同样只在显示期间生效。
+      react.useEffect(function () {
+        if (text === undefined || isOwner !== true) return undefined
         var onKeyDown = function (event) {
           if (event.isComposing === true) return
+          if (isComposerEvent(event) !== true) return
+          if (event.code === 'Escape') {
+            event.preventDefault()
+            dismissSuggestion(sessionId, source, suggestion)
+            return
+          }
           if (matcher === undefined) return
           if (matcher(event) !== true) return
-          if (isComposerFocused() !== true) return
           event.preventDefault()
-          inputActions.setDraft(text)
+          acceptSuggestion(sessionId, source, suggestion, inputActions, draftRev)
         }
         window.addEventListener('keydown', onKeyDown)
         return function () { window.removeEventListener('keydown', onKeyDown) }
-      }, [text, matcher, inputActions])
+      }, [text, matcher, inputActions, sessionId, isOwner, identity, draftRev])
+
+      // 曝光：真正渲染出幽灵文字之后才报 shown，且每条只报一次。
+      // 标签页隐藏时先挂一个监听，回到前台再报 —— 用户没看到的不能算曝光。
+      react.useEffect(function () {
+        if (text === undefined || identity === '' || isOwner !== true) return undefined
+        if (source === null || ghostOwner(sessionId) !== tokenRef.current) return undefined
+        if (viewVisible() !== true) {
+          if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
+          var onVisible = function () {
+            if (viewVisible() !== true) return
+            document.removeEventListener('visibilitychange', onVisible)
+            if (ghostOwner(sessionId) !== tokenRef.current) return
+            void reportOnce(sessionId, identity, 'shown')
+          }
+          document.addEventListener('visibilitychange', onVisible)
+          return function () { document.removeEventListener('visibilitychange', onVisible) }
+        }
+        void reportOnce(sessionId, identity, 'shown')
+        return undefined
+      }, [text, identity, sessionId, isOwner])
 
       // 主动触发：会话空闲、草稿为空、停止活动 IDLE_DELAY_MS 之后，自己去要一条。
       // 不依赖回合事件，所以「刚打开会话」「上一轮早就答完」也会有建议。
@@ -586,21 +1357,31 @@ window.__ModuleLoader__.load({
         }
       }, [sessionId, running, draft, suggestion])
 
-      // 隐式学习：上一条建议还在展示时，用户自己把草稿写成了一段话，
-      // 说明他放弃了建议（或者自己写得更好）。报一次后停止观察这一条。
-      var pending = react.useRef(null)
+      // 采纳之后：用户改写了还是发出去了，只能从真实草稿变化里看。
+      var viewRef = react.useRef(null)
+      viewRef.current = {
+        draft: draft,
+        phase: phase,
+        running: running,
+        awaitingFirstTurn: awaitingFirstTurn,
+        pendingSubmissions: pendingSubmissions
+      }
       react.useEffect(function () {
-        if (suggestion !== null && suggestion !== undefined) pending.current = suggestion.text
-      }, [suggestion])
+        if (sessionId === undefined || sessionId === null) return
+        acceptViews.set(sessionId, viewRef.current)
+        observeAcceptance(sessionId, {
+          draft: draft,
+          phase: phase,
+          running: running,
+          pendingSubmissions: pendingSubmissions
+        })
+      }, [sessionId, draft, phase, running, pendingSubmissions, awaitingFirstTurn])
       react.useEffect(function () {
-        if (typeof draft !== 'string' || draft.trim() === '') return
-        var open = pending.current
-        if (open === null || open === undefined) return
-        pending.current = null
-        void reportFeedback(sessionId, draft.trim(), false)
-      }, [draft, sessionId])
+        if (sessionId === undefined || sessionId === null) return undefined
+        return function () { acceptViews.delete(sessionId) }
+      }, [sessionId])
 
-      if (text === undefined) return null
+      if (text === undefined || isOwner !== true) return null
       return react.createElement(
         'div',
         { style: { display: 'contents' }, 'data-input-suggest-ghost': '' },
@@ -663,6 +1444,7 @@ window.__ModuleLoader__.load({
       var running = useSession(function (state) { return state.running })
       var draft = useInput(function (state) { return state.draft })
       var phase = useInput(function (state) { return state.phase })
+      var draftRev = useInput(function (state) { return state.draftRev })
 
       var resultState = react.useState(null)
       var result = resultState[0]
@@ -706,23 +1488,34 @@ window.__ModuleLoader__.load({
       var accept = function () {
         if (suggestion === null || suggestion === undefined) return
         if (editable !== true) return
-        inputActions.setDraft(suggestion.text)
+        acceptSuggestion(sessionId, source, suggestion, inputActions, draftRev)
       }
 
       /**
        * 显式生成一次（重随 / 手动触发共用）。
-       * 传 `manual: true` 时即使当前没有建议也能发起，用于「用户主动要一条」。
+       *
+       * 用的是本会话共享的生成通道：两个视图各点一次不会并行打出两次请求，
+       * 后发起的请求会取消前一个，迟到的旧结果也不会写回。
        */
       var reroll = function () {
-        if (busy === true || request.current !== null) return
-        if (typeof AbortController !== 'function') return
         if (sessionId === undefined || sessionId === null) return
-        var controller = new AbortController()
-        request.current = controller
+        if (busy === true) return
+        var flight = source.beginGeneration()
+        if (flight === null) return
+        if (request.current !== null && request.current !== flight) request.current.abort()
+        request.current = flight
         setResult({ sessionId: sessionId, busy: true, notice: null })
-        var timer = setTimeout(function () { controller.abort() }, REQUEST_TIMEOUT_MS)
-        void requestGeneration(sessionId, controller.signal).then(function (response) {
-          if (request.current !== controller) return
+        var timer = setTimeout(function () { flight.abort() }, REQUEST_TIMEOUT_MS)
+        var currentSuggestion = suggestion
+        var options = {
+          trigger: 'manual',
+          draft: typeof draft === 'string' && draft.trim() !== '' ? draft : undefined,
+          suggestionId: currentSuggestion === null || currentSuggestion === undefined
+            ? undefined
+            : suggestionIdentity(currentSuggestion)
+        }
+        void requestGeneration(sessionId, flight.signal, options).then(function (response) {
+          if (request.current !== flight || flight.owns() !== true) return
           if (response.status === 'generated') {
             source.remember(response.suggestion)
             source.refresh()
@@ -738,11 +1531,16 @@ window.__ModuleLoader__.load({
                 ? t.noContext
                 : response.status === 'busy'
                   ? t.busy
-                  : t.failed
+                  : response.status === 'limited'
+                    ? t.limited
+                    : response.status === 'skipped'
+                      ? t.skipped
+                      : t.failed
           })
         }).finally(function () {
           clearTimeout(timer)
-          if (request.current === controller) request.current = null
+          flight.settle()
+          if (request.current === flight) request.current = null
         })
       }
 
@@ -799,8 +1597,8 @@ window.__ModuleLoader__.load({
         key: 'reroll',
         type: 'button',
         className: 'dsh-input-suggest-action',
-        title: busy === true ? t.generating : t.regenerate,
-        'aria-label': busy === true ? t.generating : t.regenerate,
+        title: busy === true ? t.generating : (typeof draft === 'string' && draft.trim() !== '' ? t.refine : t.regenerate),
+        'aria-label': busy === true ? t.generating : (typeof draft === 'string' && draft.trim() !== '' ? t.refine : t.regenerate),
         'aria-busy': busy === true,
         'data-input-suggest-reroll': '',
         disabled: busy === true,
@@ -950,13 +1748,13 @@ window.__ModuleLoader__.load({
      * 设置页打开时读一次，用户点「刷新」再读一次。
      */
     function useUsage() {
-      var state = react.useState({ status: 'idle', usage: null })
+      var state = react.useState({ status: 'idle', usage: null, topFeedback: null })
       var nonceState = react.useState(0)
       var setNonce = nonceState[1]
 
       react.useEffect(function () {
         var live = true
-        state[1]({ status: 'loading', usage: state[0].usage })
+        state[1]({ status: 'loading', usage: state[0].usage, topFeedback: state[0].topFeedback })
         Promise.resolve()
           .then(function () {
             return fetch(USAGE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' })
@@ -965,10 +1763,14 @@ window.__ModuleLoader__.load({
           .then(function (body) {
             if (!live) return
             var usage = body !== null && body !== undefined && typeof body === 'object' ? body.usage : null
-            state[1]({ status: usage === null || usage === undefined ? 'error' : 'ready', usage: usage ?? null })
+            var topFeedback = body !== null && body !== undefined && typeof body === 'object'
+              && body.feedback !== null && typeof body.feedback === 'object'
+              ? body.feedback
+              : null
+            state[1]({ status: usage === null || usage === undefined ? 'error' : 'ready', usage: usage ?? null, topFeedback })
           })
           .catch(function () {
-            if (live) state[1]({ status: 'error', usage: state[0].usage })
+            if (live) state[1]({ status: 'error', usage: state[0].usage, topFeedback: state[0].topFeedback })
           })
         return function () { live = false }
       }, [nonceState[0]])
@@ -976,6 +1778,7 @@ window.__ModuleLoader__.load({
       return {
         status: state[0].status,
         usage: state[0].usage,
+        topFeedback: state[0].topFeedback,
         refresh: function () { setNonce(function (n) { return n + 1 }) },
       }
     }
@@ -1035,6 +1838,120 @@ window.__ModuleLoader__.load({
       if (number >= 1000000) return (number / 1000000).toFixed(2) + 'M'
       if (number >= 1000) return (number / 1000).toFixed(1) + 'k'
       return String(Math.round(number))
+    }
+
+    /** 建议模式：predict | next-action | hybrid。 */
+    function normalizeMode(value) {
+      return value === 'predict' || value === 'next-action' ? value : 'hybrid'
+    }
+
+    /** 上下文范围：recent | task | extended。 */
+    function normalizeContextLevel(value) {
+      return value === 'recent' || value === 'extended' ? value : 'task'
+    }
+
+    /** 输出格式：single-line | concise | structured | steps | research | custom。 */
+    function normalizeOutputFormat(value) {
+      return value === 'single-line' || value === 'concise' || value === 'structured'
+        || value === 'steps' || value === 'research' || value === 'custom' ? value : 'single-line'
+    }
+
+    /** 设置页读到的配置 -> 表单草稿。缺字段时补默认值。 */
+    function normalizeSettings(value) {
+      var source = value !== null && value !== undefined ? value : {}
+      return {
+        enabled: source.enabled !== false,
+        provider: str(source.provider),
+        model: str(source.model),
+        reasoningEffort: str(source.reasoningEffort),
+        acceptKey: str(source.acceptKey) || 'Tab',
+        maxSuggestionChars: String(source.maxSuggestionChars !== undefined ? source.maxSuggestionChars : 240),
+        style: str(source.style),
+        stylePreset: str(source.stylePreset) || 'neutral',
+        detailLevel: str(source.detailLevel) || 'standard',
+        template: str(source.template),
+        useMemory: source.useMemory !== false,
+        useExamples: source.useExamples !== false,
+        learn: source.learn !== false,
+        allowRemote: source.allowRemote === true,
+        mode: normalizeMode(source.mode),
+        taskAwareness: source.taskAwareness !== false,
+        contextLevel: normalizeContextLevel(source.contextLevel),
+        taskMemoryMinutes: String(
+          Number.isSafeInteger(source.taskMemoryMinutes) ? source.taskMemoryMinutes : 30
+        ),
+        draftCompletion: source.draftCompletion === true,
+        outputFormat: normalizeOutputFormat(source.outputFormat),
+        formatTemplate: str(source.formatTemplate),
+        agentConfig: source.agentConfig !== false,
+        localPolicy: source.localPolicy === 'strict-local' ? 'strict-local' : 'loopback-gateway',
+        trustedLocalProvider: str(source.trustedLocalProvider),
+        trustedLocalModel: str(source.trustedLocalModel)
+      }
+    }
+
+    /** 表单草稿与宿主值之间的差异，变成 configForms 的 op 列表。 */
+    function settingsOps(draft, live) {
+      var ops = []
+      if (draft.enabled !== live.enabled) ops.push({ op: 'set', path: ['enabled'], value: draft.enabled === true })
+      var flags = ['useMemory', 'useExamples', 'learn', 'allowRemote', 'taskAwareness', 'draftCompletion', 'agentConfig']
+      for (var flagIndex = 0; flagIndex < flags.length; flagIndex += 1) {
+        var flag = flags[flagIndex]
+        if (draft[flag] !== live[flag]) ops.push({ op: 'set', path: [flag], value: draft[flag] === true })
+      }
+      if (draft.detailLevel !== live.detailLevel) ops.push({ op: 'set', path: ['detailLevel'], value: draft.detailLevel })
+      if (draft.stylePreset !== live.stylePreset) ops.push({ op: 'set', path: ['stylePreset'], value: draft.stylePreset })
+      if (draft.mode !== live.mode) ops.push({ op: 'set', path: ['mode'], value: draft.mode })
+      if (draft.contextLevel !== live.contextLevel) {
+        ops.push({ op: 'set', path: ['contextLevel'], value: draft.contextLevel })
+      }
+      if (draft.outputFormat !== live.outputFormat) {
+        ops.push({ op: 'set', path: ['outputFormat'], value: draft.outputFormat })
+      }
+      if (draft.localPolicy !== live.localPolicy) {
+        ops.push({ op: 'set', path: ['localPolicy'], value: draft.localPolicy })
+      }
+      var textFields = ['provider', 'model', 'reasoningEffort', 'style', 'template', 'formatTemplate', 'trustedLocalProvider', 'trustedLocalModel']
+      for (var index = 0; index < textFields.length; index += 1) {
+        var field = textFields[index]
+        if (draft[field] === live[field]) continue
+        ops.push(draft[field] === '' ? { op: 'unset', path: [field] } : { op: 'set', path: [field], value: draft[field] })
+      }
+      if (draft.acceptKey !== live.acceptKey && draft.acceptKey !== '') {
+        ops.push({ op: 'set', path: ['acceptKey'], value: draft.acceptKey })
+      }
+      if (draft.taskMemoryMinutes !== live.taskMemoryMinutes) {
+        var minutes = Number(draft.taskMemoryMinutes)
+        // 越界的输入不写回去：0 表示不留存，120 是上限。
+        if (Number.isSafeInteger(minutes) && minutes >= 0 && minutes <= 120) {
+          ops.push({ op: 'set', path: ['taskMemoryMinutes'], value: minutes })
+        }
+      }
+      if (draft.maxSuggestionChars !== live.maxSuggestionChars) {
+        var chars = Number(draft.maxSuggestionChars)
+        if (Number.isSafeInteger(chars) && chars >= 1) {
+          ops.push({ op: 'set', path: ['maxSuggestionChars'], value: chars })
+        }
+      }
+      return ops
+    }
+
+    /** 比率（0..1，分母为零时为 null）写成百分比。 */
+    function formatRate(value) {
+      if (value === null || value === undefined) return '—'
+      var number = Number(value)
+      if (!Number.isFinite(number)) return '—'
+      return String(Math.round(number * 100)) + '%'
+    }
+
+    /** 平均响应时间：毫秒给到秒，超过一分钟给到分。 */
+    function formatMilliseconds(value) {
+      if (value === null || value === undefined) return '—'
+      var number = Number(value)
+      if (!Number.isFinite(number) || number < 0) return '—'
+      if (number < 1000) return String(Math.round(number)) + 'ms'
+      if (number < 60000) return (number / 1000).toFixed(1) + 's'
+      return (number / 60000).toFixed(1) + 'min'
     }
 
     /** 读 Host 的实时模型目录。 */
@@ -1203,53 +2120,19 @@ window.__ModuleLoader__.load({
       var usage = useUsage()
       var presets = usePresets()
       var scopes = props.scopes
+      // 反馈统计住在 /usage 的 feedback 段；旧宿主没有这一段时整块隐藏。
+      var usageFeedback = usage.usage !== null && usage.usage !== undefined
+        && usage.usage.feedback !== null && typeof usage.usage.feedback === 'object'
+        ? usage.usage.feedback
+        : null
+      var feedback = usage.topFeedback !== null && typeof usage.topFeedback === 'object'
+        ? usage.topFeedback
+        : usageFeedback
 
       var main = useSection(
         scopes.main,
-        function (value) {
-          var source = value !== null && value !== undefined ? value : {}
-          return {
-            enabled: source.enabled !== false,
-            provider: str(source.provider),
-            model: str(source.model),
-            reasoningEffort: str(source.reasoningEffort),
-            acceptKey: str(source.acceptKey) || 'Tab',
-            maxSuggestionChars: String(source.maxSuggestionChars !== undefined ? source.maxSuggestionChars : 240),
-            style: str(source.style),
-            stylePreset: str(source.stylePreset) || 'neutral',
-            detailLevel: str(source.detailLevel) || 'standard',
-            template: str(source.template),
-            useMemory: source.useMemory !== false,
-            useExamples: source.useExamples !== false,
-            learn: source.learn !== false,
-            allowRemote: source.allowRemote === true
-          }
-        },
-        function (draft, live) {
-          var ops = []
-          if (draft.enabled !== live.enabled) ops.push({ op: 'set', path: ['enabled'], value: draft.enabled === true })
-          var flags = ['useMemory', 'useExamples', 'learn', 'allowRemote']
-          for (var flagIndex = 0; flagIndex < flags.length; flagIndex += 1) {
-            var flag = flags[flagIndex]
-            if (draft[flag] !== live[flag]) ops.push({ op: 'set', path: [flag], value: draft[flag] === true })
-          }
-          if (draft.detailLevel !== live.detailLevel) ops.push({ op: 'set', path: ['detailLevel'], value: draft.detailLevel })
-          if (draft.stylePreset !== live.stylePreset) ops.push({ op: 'set', path: ['stylePreset'], value: draft.stylePreset })
-          var textFields = ['provider', 'model', 'reasoningEffort', 'style', 'template']
-          for (var index = 0; index < textFields.length; index += 1) {
-            var field = textFields[index]
-            if (draft[field] === live[field]) continue
-            ops.push(draft[field] === '' ? { op: 'unset', path: [field] } : { op: 'set', path: [field], value: draft[field] })
-          }
-          if (draft.acceptKey !== live.acceptKey && draft.acceptKey !== '') {
-            ops.push({ op: 'set', path: ['acceptKey'], value: draft.acceptKey })
-          }
-          if (draft.maxSuggestionChars !== live.maxSuggestionChars) {
-            var chars = Number(draft.maxSuggestionChars)
-            if (Number.isSafeInteger(chars) && chars >= 1) ops.push({ op: 'set', path: ['maxSuggestionChars'], value: chars })
-          }
-          return ops
-        }
+        normalizeSettings,
+        settingsOps
       )
 
       var setField = function (field, value) {
@@ -1364,6 +2247,97 @@ window.__ModuleLoader__.load({
           )
         ),
 
+        // 建议策略：模式、任务感知、上下文范围。三者互相独立，都能单独关掉。
+        react.createElement(
+          'div',
+          { style: styles.section },
+          react.createElement('div', { style: styles.title }, t.strategyTitle),
+          react.createElement(Row, { label: t.mode },
+            react.createElement(Select, {
+              value: main.draft.mode,
+              options: [
+                { value: 'hybrid', label: t.modeHybrid },
+                { value: 'predict', label: t.modePredict },
+                { value: 'next-action', label: t.modeNext }
+              ],
+              onChange: function (value) { setField('mode', value) }
+            })
+          ),
+          react.createElement('div', { style: styles.help }, t.modeHelp),
+          react.createElement(Row, { label: t.taskAwareness },
+            react.createElement('label', { style: styles.check },
+              react.createElement('input', {
+                type: 'checkbox',
+                checked: main.draft.taskAwareness === true,
+                onChange: function (event) { setField('taskAwareness', event.target.checked) }
+              }),
+              react.createElement('span', null, t.on)
+            )
+          ),
+          react.createElement('div', { style: styles.help }, t.taskAwarenessHelp),
+          react.createElement(Row, { label: t.contextLevel },
+            react.createElement(Select, {
+              value: main.draft.contextLevel,
+              options: [
+                { value: 'recent', label: t.contextRecent },
+                { value: 'task', label: t.contextTask },
+                { value: 'extended', label: t.contextExtended }
+              ],
+              onChange: function (value) { setField('contextLevel', value) }
+            })
+          ),
+          react.createElement('div', { style: styles.help }, t.contextHelp),
+          react.createElement(Row, { label: t.taskMemory },
+            react.createElement('input', {
+              type: 'number',
+              min: 0,
+              max: 120,
+              style: styles.input,
+              value: main.draft.taskMemoryMinutes,
+              onChange: function (event) { setField('taskMemoryMinutes', event.target.value) }
+            })
+          ),
+          react.createElement('div', { style: styles.help }, t.taskMemoryHelp),
+          react.createElement(Row, { label: t.draftCompletion },
+            react.createElement('label', { style: styles.check },
+              react.createElement('input', {
+                type: 'checkbox',
+                checked: main.draft.draftCompletion === true,
+                onChange: function (event) { setField('draftCompletion', event.target.checked) }
+              }),
+              react.createElement('span', null, t.on)
+            )
+          ),
+          react.createElement('div', { style: styles.help }, t.draftCompletionHelp)
+        ),
+
+        // 输出格式：与风格预设独立。结构化 / 分步 / 研究是多行建议。
+        react.createElement(
+          'div',
+          { style: styles.section },
+          react.createElement('div', { style: styles.title }, t.formatTitle),
+          react.createElement('div', { style: styles.help }, t.formatHelp),
+          react.createElement(Select, {
+            value: main.draft.outputFormat,
+            options: [
+              { value: 'single-line', label: t.formatSingle },
+              { value: 'concise', label: t.formatConcise },
+              { value: 'structured', label: t.formatStructured },
+              { value: 'steps', label: t.formatSteps },
+              { value: 'research', label: t.formatResearch },
+              { value: 'custom', label: t.formatCustom }
+            ],
+            onChange: function (value) { setField('outputFormat', value) }
+          }),
+          main.draft.outputFormat !== 'custom' ? null : react.createElement('div', { style: styles.help }, t.formatTemplateHelp),
+          main.draft.outputFormat !== 'custom' ? null : react.createElement('textarea', {
+            style: styles.textarea,
+            value: main.draft.formatTemplate,
+            placeholder: t.formatTemplatePlaceholder,
+            onChange: function (event) { setField('formatTemplate', event.target.value) }
+          })
+        ),
+
         // 风格预设：常见诉求（方案类、理论推导等）做成下拉选项，
         // 选中后写入 stylePreset，由宿主拼进系统提示词；下方仍可自由覆盖。
         react.createElement(
@@ -1462,7 +2436,37 @@ window.__ModuleLoader__.load({
               react.createElement('span', null, t.on)
             )
           ),
-          react.createElement('div', { style: styles.help }, t.allowRemoteHelp)
+          react.createElement('div', { style: styles.help }, t.allowRemoteHelp),
+          react.createElement(Row, { label: t.localPolicy },
+            react.createElement(Select, {
+              value: main.draft.localPolicy,
+              options: [
+                { value: 'loopback-gateway', label: t.localPolicyGateway },
+                { value: 'strict-local', label: t.localPolicyStrict }
+              ],
+              onChange: function (value) { setField('localPolicy', value) }
+            })
+          ),
+          react.createElement('div', { style: styles.help }, t.localPolicyHelp),
+          main.draft.localPolicy !== 'strict-local' ? null : react.createElement(Row, { label: t.trustedProvider },
+            react.createElement('input', {
+              type: 'text',
+              style: styles.input,
+              value: main.draft.trustedLocalProvider,
+              placeholder: 'opencodex',
+              onChange: function (event) { setField('trustedLocalProvider', event.target.value) }
+            })
+          ),
+          main.draft.localPolicy !== 'strict-local' ? null : react.createElement(Row, { label: t.trustedModel },
+            react.createElement('input', {
+              type: 'text',
+              style: styles.input,
+              value: main.draft.trustedLocalModel,
+              placeholder: 'llama-3.1-8b',
+              onChange: function (event) { setField('trustedLocalModel', event.target.value) }
+            })
+          ),
+          main.draft.localPolicy !== 'strict-local' ? null : react.createElement('div', { style: styles.help }, t.trustedHelp)
         ),
 
         // token 用量：本功能自己的账本，与会话主模型的消耗分开看。
@@ -1496,6 +2500,43 @@ window.__ModuleLoader__.load({
               onClick: usage.refresh,
             }, t.refresh)
           )
+        ),
+
+        // 建议反馈：只统计真实事件。发送与改写由宿主按你实际发出的消息判定。
+        react.createElement(
+          'div',
+          { style: styles.section },
+          react.createElement('div', { style: styles.title }, t.feedbackTitle),
+          react.createElement('div', { style: styles.help }, t.feedbackHelp),
+          react.createElement(
+            'div',
+            { style: styles.usageGrid },
+            react.createElement('span', null, t.feedbackShown),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.shown ?? 0)),
+            react.createElement('span', null, t.feedbackAccepted),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.accepted ?? 0)),
+            react.createElement('span', null, t.feedbackSent),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.sent ?? 0)),
+            react.createElement('span', null, t.feedbackEdited),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.edited ?? 0)),
+            react.createElement('span', null, t.feedbackDismissed),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.dismissed ?? 0)),
+            react.createElement('span', null, t.feedbackRegenerated),
+            react.createElement('span', { style: styles.usageValue }, String(feedback?.regenerated ?? 0)),
+            react.createElement('span', null, t.feedbackAcceptRate),
+            react.createElement('span', { style: styles.usageValue }, formatRate(feedback?.acceptRate)),
+            react.createElement('span', null, t.feedbackSendRate),
+            react.createElement('span', { style: styles.usageValue }, formatRate(feedback?.sendRate)),
+            react.createElement('span', null, t.feedbackEditRatio),
+            react.createElement('span', { style: styles.usageValue }, formatRate(feedback?.avgEditRatio)),
+            react.createElement('span', null, t.feedbackDuplicateRate),
+            react.createElement('span', { style: styles.usageValue }, formatRate(feedback?.duplicateRate)),
+            react.createElement('span', null, t.feedbackResponse),
+            react.createElement('span', { style: styles.usageValue }, formatMilliseconds(feedback?.avgResponseMs)),
+            react.createElement('span', null, t.feedbackTokensPerSent),
+            react.createElement('span', { style: styles.usageValue }, formatTokens(feedback?.tokensPerSent))
+          ),
+          feedback === null ? react.createElement('div', { style: styles.help }, t.feedbackEmpty) : null
         ),
 
         main.notice !== '' ? react.createElement('div', { style: styles.notice }, main.notice) : null,
@@ -1574,12 +2615,52 @@ window.__ModuleLoader__.load({
       parseAcceptKey: parseAcceptKey,
       encodeKey: encodeKey,
       isSuggestion: isSuggestion,
-      currentSuggestion: currentSuggestion
-      ,
+      currentSuggestion: currentSuggestion,
+      suggestionIdentity: suggestionIdentity,
+      insertSuggestionText: insertSuggestionText,
+      acceptSuggestion: acceptSuggestion,
+      dismissSuggestion: dismissSuggestion,
+      observeAcceptance: observeAcceptance,
+      reportFeedbackEvent: reportFeedbackEvent,
+      requestGeneration: requestGeneration,
+      requestIfIdle: requestIfIdle,
+      normalizeMode: normalizeMode,
+      normalizeContextLevel: normalizeContextLevel,
+      normalizeSettings: normalizeSettings,
+      settingsOps: settingsOps,
+      normalizeDraftText: normalizeDraftText,
+      isComposerEvent: isComposerEvent,
+      viewVisible: viewVisible,
+      reportOnce: reportOnce,
+      resetFeedbackCapability: resetFeedbackCapability,
+      /** 等队列里的反馈全部发完（自检用，避免跨用例串记录）。 */
+      flushFeedback: function () { return feedbackChain },
+      /** 停止所有轮询与计时器（自检收尾用，避免进程被定时器挂住）。 */
+      disposeAll: function () {
+        for (var record of accepted.values()) cancelAcceptanceTimer(record)
+        accepted.clear()
+        acceptViews.clear()
+        for (var source of sources.values()) {
+          clearInterval(source.timer)
+          source.generating?.abort?.()
+          source.generating = null
+          source.listeners.length = 0
+          source.controller.abort()
+        }
+        sources.clear()
+      },
+      settleAcceptance: settleAcceptance,
+      cancelAcceptance: cancelAcceptance,
+      /** 测试用：直接观察采纳跟踪与去重表，不需要等真实计时器。 */
+      state: { accepted: accepted, acceptViews: acceptViews, reported: reported, sources: sources },
+      formatRate: formatRate,
+      formatMilliseconds: formatMilliseconds,
+      ghostOwner: ghostOwner,
+      claimGhostView: claimGhostView,
+      rememberSuggestion: rememberSuggestion,
       // 供自检直接驱动共享源，验证「两个订阅者都收到广播」。
       sourceOf: sourceOf,
-      publishSource: publishSource
-      ,
+      publishSource: publishSource,
       presetText: presetText
     }
     return module.exports

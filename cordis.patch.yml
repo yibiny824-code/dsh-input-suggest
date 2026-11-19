@@ -3,7 +3,7 @@
 # 浏览器半区由 package.json 的 dsh.client 声明（exports["./client"]），这里只挂宿主行。
 # 可调字段都在下面；provider/model 留空表示沿用会话最近一次请求的路由。
 #
-# 安全默认：allowRemote 为 false —— 上下文只发给 loopback 端点。
+# 默认仅连接端点已知的本机网关。
 - insert:
     - id: input-suggest
       name: dsh-input-suggest
@@ -21,6 +21,17 @@
         useExamples: true
         learn: true
         allowRemote: false
+        localPolicy: loopback-gateway
+        trustedLocalProvider: ''
+        trustedLocalModel: ''
+        mode: hybrid
+        outputFormat: single-line
+        formatTemplate: ''
+        agentConfig: true
+        taskAwareness: true
+        contextLevel: task
+        taskMemoryMinutes: 30
+        draftCompletion: false
         maxRecentTurns: 1
         maxTranscriptChars: 12000
         maxSuggestionChars: 240

@@ -1,5 +1,7 @@
-import z from '@deepseek-ai/schemastery'
-import { Config } from 'file:///E:/DeepseekHarness/dsh-input-suggest/lib/index.js'
+import assert from 'node:assert/strict'
+import { hostModuleUrl } from './resolve-host.mjs'
+
+import { Config, resolveConfig } from '../lib/index.js'
 
 const resolved = Config({
   enabled: true,
@@ -14,15 +16,28 @@ const resolved = Config({
   maxOutputTokens: 512,
   timeoutMs: 60000,
 })
-const describe = Object.keys(resolved).map((key) => key + '=' + (resolved[key] !== null && typeof resolved[key] === 'object' && typeof resolved[key].get === 'function' ? 'volatile' : JSON.stringify(resolved[key])))
-console.log(describe.join('\n'))
+const fields = [
+  'localPolicy', 'trustedLocalProvider', 'trustedLocalModel', 'mode', 'taskAwareness',
+  'contextLevel', 'taskMemoryMinutes', 'draftCompletion',
+]
+for (const field of fields) assert.equal(typeof resolved[field].get, 'function', field)
+assert.equal(resolveConfig(resolved).mode, 'hybrid')
+assert.equal(resolveConfig(resolved).contextLevel, 'task')
+assert.equal(resolveConfig(resolved).allowRemote, false)
 
-// 越界值必须被拒绝，好让 profile 启动时就报错而不是运行时静默。
-let rejected = false
-try {
-  Config({ maxOutputTokens: 0, timeoutMs: 60000, maxTranscriptChars: 1, maxSuggestionChars: 1, maxRecentTurns: 1 })
-} catch {
-  rejected = true
+const disabled = resolveConfig(Config({
+  mode: 'predict', taskAwareness: false, contextLevel: 'recent', taskMemoryMinutes: 0, learn: false,
+}))
+assert.equal(disabled.mode, 'predict')
+assert.equal(disabled.taskAwareness, false)
+assert.equal(disabled.taskMemoryMinutes, 0)
+assert.equal(disabled.learn, false)
+
+for (const config of [
+  { maxOutputTokens: 0 }, { taskMemoryMinutes: 121 }, { taskMemoryMinutes: -1 },
+  { mode: 'unknown' }, { contextLevel: 'unknown' }, { localPolicy: 'unknown' },
+]) {
+  assert.throws(() => Config(config), JSON.stringify(config))
 }
-console.log('rejects-out-of-range=' + String(rejected))
+console.log('configuration defaults, volatile fields, valid overrides and bounds passed')
 

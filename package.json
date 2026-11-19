@@ -1,9 +1,9 @@
 {
   "name": "dsh-input-suggest",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "输入框智能建议：每轮回合结束后用指定的辅助模型预测下一条提示词，以灰色幽灵文字填进输入框；Tab 采纳，独立「重随」按钮重新生成，提示词与风格可自定义。零会话日志写入。",
+  "description": "DSH 任务感知型输入建议。按任务进度生成一条可用 Tab 采纳的下一步指令，支持独立辅助模型、提示词、本地反馈与 Token 账本。",
   "homepage": "https://github.com/yibiny824-code/dsh-input-suggest",
   "repository": {
     "type": "git",
@@ -44,6 +44,11 @@
     "test:install": "node test/install-shape.mjs",
     "test:memory": "node --import ./test/resolve-host.mjs test/memory-privacy.mjs",
     "test:usage": "node test/usage.mjs",
+    "test:feedback": "node --import ./test/resolve-host.mjs test/feedback.mjs",
+    "test:task": "node test/task-state.mjs",
+    "test:access": "node --import ./test/resolve-host.mjs test/access.mjs",
+    "test:suggestion-config": "node --import ./test/resolve-host.mjs test/suggestion-config.mjs",
+    "test:agent-tool": "node --import ./test/resolve-host.mjs test/agent-tool.mjs",
     "test:host": "node --import ./test/resolve-host.mjs test/real-cordis.mjs",
     "test:storage": "node --import ./test/resolve-host.mjs test/e2e-storage.mjs",
     "test:schema": "node --import ./test/resolve-host.mjs test/config-schema.mjs",

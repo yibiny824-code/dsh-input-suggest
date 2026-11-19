@@ -4,7 +4,9 @@
  */
 import assert from 'node:assert/strict'
 import { emptyProfile, recordObservation, describeProfile, recentAccepted, similarity, ADOPT_THRESHOLD, languageOf, leadingWordOf, editDistance } from '../lib/memory.js'
-import { redact, isLoopbackEndpoint, outboundDecision, stillLooksSensitive } from '../lib/privacy.js'
+import {
+  redact, outboundDecision, stillLooksSensitive, endpointOf, normalizeLocalPolicy,
+} from '../lib/privacy.js'
 import {
   renderPrompt, validateTemplate, DEFAULT_TEMPLATE, INSTRUCTIONS, resolveDetail,
   STYLE_PRESETS, DEFAULT_PRESET, resolvePreset, composeStyle,
@@ -103,15 +105,163 @@ check('stillLooksSensitive catches what slipped through', () => {
   assert.equal(stillLooksSensitive('nothing to see'), false)
 })
 
-check('outbound decisions fail closed for remote endpoints', () => {
-  assert.equal(isLoopbackEndpoint('http://127.0.0.1:10100/v1'), true)
-  assert.equal(isLoopbackEndpoint('https://api.example.com/v1'), false)
-  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://127.0.0.1:10100/v1' }), 'allowed')
-  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'https://api.example.com/v1' }), 'blocked-remote')
-  assert.equal(outboundDecision({ allowRemote: true, endpoint: 'https://api.example.com/v1' }), 'allowed')
-  // 端点未知时放行：否则读不到 baseURL 的本地适配器会让功能静默失效。
-  assert.equal(outboundDecision({ allowRemote: false, endpoint: undefined }), 'allowed')
-  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://localhost:10100/v1' }), 'allowed')
+check('redact removes private keys whole instead of leaving the body behind', () => {
+  const pem = [
+    '-----BEGIN RSA PRIVATE KEY-----',
+    'MIIEowIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz',
+    '-----END RSA PRIVATE KEY-----',
+  ].join('\n')
+  const clean = redact(pem)
+  assert.doesNotMatch(clean, /MIIEowIBAAKCAQEA/)
+  assert.equal(clean, '<private-key>')
+})
+
+check('the system prompt carries memory, examples and the avoid line through both passes', () => {
+  // 宿主把这三段一起拼进 system，再整体 redact + 复检；这里复现同一条链路。
+  const system = [
+    'You predict the next prompt.',
+    'USER PROFILE:',
+    '- acceptance rate: 62%; writes mail to a.b@example.com',
+    'EXAMPLES:',
+    '- look at E:\\work\\project\\src\\auth.ts',
+  ].join('\n')
+  const avoid = 'previous suggestion from 192.168.1.20'
+  const outgoing = redact(system + '\n\nALREADY SUGGESTED:\n' + avoid)
+  assert.doesNotMatch(outgoing, /a\.b@example\.com/)
+  assert.doesNotMatch(outgoing, /E:\\work/)
+  assert.doesNotMatch(outgoing, /192\.168\.1\.20/)
+  assert.equal(stillLooksSensitive(outgoing), false)
+
+  // 截断的私钥只有 BEGIN 头，整段替换匹配不到 END，脱敏会原样放过它 ——
+  // 这正是第二遍复检存在的理由，也是唯一能看见这种残留的地方。
+  const leaky = redact(system + '\n\nALREADY SUGGESTED:\n' + '-----BEGIN RSA PRIVATE KEY-----\nAAAAAA')
+  assert.equal(stillLooksSensitive(leaky), true, 'only the whole-bundle check can see this')
+})
+
+check('local policies keep the canonical names the host and client use', () => {
+  assert.equal(normalizeLocalPolicy('loopback-gateway'), 'loopback-gateway')
+  assert.equal(normalizeLocalPolicy('strict-local'), 'strict-local')
+  assert.equal(normalizeLocalPolicy(' strict-local '), 'strict-local')
+  // 旧别名仍然可用，免得旧配置把人挡在门外。
+  assert.equal(normalizeLocalPolicy('gateway'), 'loopback-gateway')
+  assert.equal(normalizeLocalPolicy('strict'), 'strict-local')
+  // 认不出的值落到更严格的一侧：配错不会放宽外发。
+  assert.equal(normalizeLocalPolicy('nonsense'), 'strict-local')
+  assert.equal(normalizeLocalPolicy(undefined), 'strict-local')
+  // 规范名之外的写法都不改变「哪些端点算本机」这一层判断。
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://127.0.0.5:10100/v1', localPolicy: 'unknown-policy' }), 'blocked-unattested')
+})
+
+check('unknown endpoints are blocked in every policy', () => {
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: undefined, localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: undefined, localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+  // 这是与旧实现的实质差别：旧版把未知当放行。
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: 'http://0.0.0.0:8080/v1', localPolicy: 'strict-local' }), 'blocked-unknown')
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: 'http://[::]:8080/v1', localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: '', localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: 'not a url', localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+  // 只有 http(s) 能当模型端点；别的协议同样不可核实。
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: 'ftp://127.0.0.1/v1', localPolicy: 'loopback-gateway' }), 'blocked-unknown')
+})
+
+check('loopback-gateway allows loopback and gates remote by allowRemote alone', () => {
+  const loopback = 'http://127.0.0.1:10100/v1'
+  const remote = 'https://api.example.com/v1'
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: loopback, localPolicy: 'loopback-gateway' }), 'allowed')
+  // allowRemote 与 loopback 网关是两条独立开关：打开它也不改变本机端点的裁决。
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: loopback, localPolicy: 'loopback-gateway' }), 'allowed')
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: remote, localPolicy: 'loopback-gateway' }), 'blocked-remote')
+  assert.equal(outboundDecision({ allowRemote: true, endpoint: remote, localPolicy: 'loopback-gateway' }), 'allowed')
+  // 整个 127/8、localhost 与 ::1 都算本机。
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://127.0.0.5:10100/v1', localPolicy: 'loopback-gateway' }), 'allowed')
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://localhost:8080/v1', localPolicy: 'loopback-gateway' }), 'allowed')
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'http://[::1]:8080/v1', localPolicy: 'loopback-gateway' }), 'allowed')
+  assert.equal(outboundDecision({ allowRemote: false, endpoint: 'https://api.deepseek.com/anthropic', localPolicy: 'loopback-gateway' }), 'blocked-remote')
+})
+
+check('strict-local needs a known loopback endpoint and an attested route', () => {
+  const route = { provider: 'oa-compat', model: 'glm-5.3' }
+  const trusted = { trustedLocalProvider: 'oa-compat', trustedLocalModel: 'glm-5.3' }
+  const loopback = 'http://127.0.0.1:8000/v1'
+  const base = { endpoint: loopback, localPolicy: 'strict-local', route }
+
+  assert.equal(outboundDecision({ ...base }), 'blocked-unattested')
+  assert.equal(outboundDecision({ ...base, ...trusted }), 'allowed')
+  // 部分 attest 不算：provider 与 model 必须同时给出并且完全一致。
+  assert.equal(outboundDecision({ ...base, trustedLocalProvider: 'oa-compat' }), 'blocked-unattested')
+  assert.equal(outboundDecision({ ...base, trustedLocalProvider: 'oa-compat', trustedLocalModel: 'other-model' }), 'blocked-unattested')
+  assert.equal(outboundDecision({ ...base, trustedLocalProvider: 'other', trustedLocalModel: 'glm-5.3' }), 'blocked-unattested')
+  // strict-local 优先于 allowRemote：远端凭证齐备也不放行。
+  assert.equal(outboundDecision({
+    endpoint: 'https://api.example.com/v1', localPolicy: 'strict-local', route, allowRemote: true, ...trusted,
+  }), 'blocked-remote')
+})
+
+check('a provider with no configured baseURL has no verifiable endpoint', () => {
+  // rc.2 的 llm.listProviders() 只给 { id, name }；显示名不能当身份用。
+  const llm = {
+    listProviders: () => [{ id: 'catalog-route', name: 'Catalog Route' }],
+    listConfigurableProviders: () => [{ provider: 'catalog-route', displayName: 'Catalog Route', settingsNs: 'llm-b', settingsPath: ['providers', 'catalog-route'] }],
+  }
+  const settings = { describe: () => [{ ns: 'llm-b', value: { providers: { 'catalog-route': { apiKeyEnv: 'X' } } } }] }
+  const ctx = { get: (name) => (name === 'llm' ? llm : name === 'settings' ? settings : undefined) }
+
+  assert.equal(endpointOf(ctx, 'catalog-route'), undefined)
+  // 显示名不是 id：用它查不到端点，也就不会被误判成另一条路由。
+  assert.equal(endpointOf(ctx, 'Catalog Route'), undefined)
+  // 读不到端点 → 未知 → 任何策略下都不外发。
+  assert.equal(outboundDecision({
+    allowRemote: true, endpoint: endpointOf(ctx, 'catalog-route'), localPolicy: 'loopback-gateway',
+  }), 'blocked-unknown')
+})
+
+check('a configured route baseURL is the endpoint every model on it shares', () => {
+  const llm = {
+    listConfigurableProviders: () => [{ provider: 'oa-compat', displayName: 'OA', settingsNs: 'llm-b', settingsPath: ['providers', 'oa-compat'] }],
+  }
+  const settings = {
+    describe: () => [{ ns: 'llm-b', value: { providers: { 'oa-compat': { baseURL: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'K' } } } }],
+  }
+  const ctx = { get: (name) => (name === 'llm' ? llm : name === 'settings' ? settings : undefined) }
+
+  assert.equal(endpointOf(ctx, 'oa-compat'), 'http://127.0.0.1:8000/v1')
+  assert.equal(outboundDecision({
+    allowRemote: false, endpoint: endpointOf(ctx, 'oa-compat'), localPolicy: 'loopback-gateway',
+  }), 'allowed')
+})
+
+check('endpoint lookup reads settings with secrets redacted and still sees the live baseURL', () => {
+  const llm = {
+    listConfigurableProviders: () => [{ provider: 'oa-compat', settingsNs: 'llm-b', settingsPath: ['providers', 'oa-compat'] }],
+  }
+  const seen = []
+  const settings = {
+    // 宿主在 redactSecrets 下会剥掉 role(secret) 字段，但 baseURL 是普通字段，原样返回。
+    describe: (options) => {
+      seen.push(options)
+      return [{
+        ns: 'llm-b',
+        value: options?.redactSecrets === true
+          ? { providers: { 'oa-compat': { baseURL: 'http://127.0.0.1:8000/v1' } } }
+          : { providers: { 'oa-compat': { baseURL: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'SECRET' } } },
+      }]
+    },
+  }
+  const ctx = { get: (name) => (name === 'llm' ? llm : name === 'settings' ? settings : undefined) }
+
+  assert.equal(endpointOf(ctx, 'oa-compat'), 'http://127.0.0.1:8000/v1')
+  // 插件只请求脱敏视图：密钥字段不进插件的作用域，端点判断也用不着它们。
+  assert.deepEqual(seen, [{ redactSecrets: true }])
+})
+
+check('an unreadable settings or llm service degrades to unknown', () => {
+  assert.equal(endpointOf({}, 'x'), undefined)
+  assert.equal(endpointOf(undefined, 'x'), undefined)
+  assert.equal(endpointOf({ get: () => { throw new Error('gone') } }, 'x'), undefined)
+  const broken = { get: (name) => (name === 'llm'
+    ? { listConfigurableProviders: () => { throw new Error('nope') } }
+    : { describe: () => [] }) }
+  assert.equal(endpointOf(broken, 'x'), undefined)
 })
 
 // ── 模板 ────────────────────────────────────────────────────────────────
@@ -210,4 +360,3 @@ check('plan and theory presets describe a shape without writing the answer', () 
 
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed')
 if (failures.length > 0) process.exitCode = 1
-

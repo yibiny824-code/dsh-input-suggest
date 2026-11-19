@@ -30,11 +30,12 @@ function check(label, fn) {
   }
 }
 
-/** 用干净进程 import 真入口；不带任何 --import 钩子，模拟宿主加载。 */
+/** 用干净进程 import 真入口；带上宿主解析钩子，模拟 DSH Loader 的依赖解析。 */
 function cleanImport() {
   const target = 'file:///' + join(root, 'lib', 'index.js').replace(/\\/g, '/')
+  const hook = 'file:///' + join(root, 'test', 'resolve-host.mjs').replace(/\\/g, '/')
   try {
-    const out = execFileSync(process.execPath, ['--input-type=module', '-e',
+    const out = execFileSync(process.execPath, ['--import', hook, '--input-type=module', '-e',
       'import(' + JSON.stringify(target) + ').then(m => console.log("OK:" + m.name))',
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     return { ok: out.includes('OK:'), out: out.trim() }

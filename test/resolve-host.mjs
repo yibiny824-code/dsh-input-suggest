@@ -34,6 +34,11 @@ const source = [
 
 register('data:text/javascript,' + encodeURIComponent(source), { parentURL: import.meta.url })
 
-// 只用于诊断：确认解析真的落在宿主安装上。
-void hostRequire
+// 测试文件也可以 import 本模块：用 hostRequire 把宿主包解析成 file URL。
+export { hostRequire }
+
+/** 把一个宿主包的入口解析成 file:// URL；解析根由 DSH_BIN 决定。 */
+export function hostModuleUrl(name) {
+  return pathToFileURL(hostRequire.resolve(name)).href
+}
 
